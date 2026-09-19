@@ -23,6 +23,8 @@ import {
   isSpeechRecognitionSupported,
   speakText,
   stopSpeaking,
+  VoiceListeningState,
+  SpeechRecognizerHandle,
 } from '../services/speechService';
 import { SAMPLE_VOICE_PROMPTS } from '../data/demoData';
 import { DetectedIntent } from '../types';
@@ -54,7 +56,11 @@ export const TalkToSaathiModal: React.FC = () => {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [isListening, setIsListening] = useState(false);
-  const [speechRecognizer, setSpeechRecognizer] = useState<{ stop: () => void } | null>(null);
+  const [voiceStatus, setVoiceStatus] = useState<VoiceListeningState>('IDLE');
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [finalTranscript, setFinalTranscript] = useState('');
+  const [interimTranscript, setInterimTranscript] = useState('');
+  const [speechRecognizer, setSpeechRecognizer] = useState<SpeechRecognizerHandle | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [lastQuery, setLastQuery] = useState<string>('');
@@ -73,7 +79,7 @@ export const TalkToSaathiModal: React.FC = () => {
     if (typeof chatEndRef.current?.scrollIntoView === 'function') {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, isListening, interimTranscript]);
 
   useEffect(() => {
     if (isTalkModalOpen && talkInitialQuery) {
@@ -85,16 +91,19 @@ export const TalkToSaathiModal: React.FC = () => {
   useEffect(() => {
     if (!isTalkModalOpen) {
       if (speechRecognizer) {
-        speechRecognizer.stop();
+        speechRecognizer.abort();
         setSpeechRecognizer(null);
       }
       setIsListening(false);
+      setVoiceStatus('IDLE');
+      setVoiceError(null);
+      setFinalTranscript('');
+      setInterimTranscript('');
       stopSpeaking();
       setIsSpeaking(false);
       setQuery('');
       setMessages([]);
     } else {
-      // Focus input on open
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
@@ -103,12 +112,22 @@ export const TalkToSaathiModal: React.FC = () => {
 
   const handleVoiceToggle = () => {
     if (isListening) {
-      speechRecognizer?.stop();
+      // User explicitly stopped listening (Requirement 7)
+      if (speechRecognizer) {
+        speechRecognizer.stop();
+      }
       setIsListening(false);
+      setVoiceStatus('STOPPED');
+      setInterimTranscript('');
       return;
     }
 
     if (!isSpeechRecognitionSupported()) {
+      setVoiceError(
+        isHindi
+          ? 'इस ब्राउज़र में आवाज़ इनपुट समर्थित नहीं है। कृपया नीचे लिखकर बताएं।'
+          : "Voice input isn't available in this browser. You can type your request below."
+      );
       showToast(
         isHindi
           ? 'माइक्रोफ़ोन समर्थित नहीं है, कृपया लिखकर बताएं।'
@@ -117,24 +136,58 @@ export const TalkToSaathiModal: React.FC = () => {
       return;
     }
 
+    // Start continuous listening session with natural pause grace period (Requirement 3 & 4)
+    setVoiceError(null);
     setIsListening(true);
+    setVoiceStatus('LISTENING');
+    setInterimTranscript('');
+
     const rec = startSpeechRecognition({
       lang: settings.language,
-      onResult: (transcript) => {
-        setQuery(transcript);
-        if (transcript.trim()) {
-          // Process automatically when speech completes
-          handleProcessQuery(transcript);
-        }
+      silenceGracePeriodMs: 3500, // 3.5s silence grace period for senior conversational speech
+      maxListeningDurationMs: 60000,
+      onStatusChange: (status) => {
+        setVoiceStatus(status);
+      },
+      onInterim: (interim, currentFinal) => {
+        setInterimTranscript(interim);
+        setFinalTranscript(currentFinal);
+        const combined = currentFinal
+          ? interim
+            ? `${currentFinal} ${interim}`
+            : currentFinal
+          : interim;
+        setQuery(combined.trim());
+      },
+      onFinalSegment: (currentFinal) => {
+        setFinalTranscript(currentFinal);
+        setQuery(currentFinal.trim());
       },
       onError: (err) => {
-        console.warn('Speech error:', err);
+        console.warn('Speech recognition error:', err);
+        setVoiceError(
+          isHindi
+            ? 'साथी ठीक से सुन नहीं पाया। कृपया दोबारा बोलें।'
+            : "SAATHI couldn't hear that clearly. Please try again."
+        );
         setIsListening(false);
+        setVoiceStatus('ERROR');
       },
-      onEnd: () => {
+      onEnd: (completeFinal, reason) => {
         setIsListening(false);
+        setSpeechRecognizer(null);
+        setInterimTranscript('');
+
+        if (completeFinal.trim()) {
+          setFinalTranscript(completeFinal.trim());
+          setQuery(completeFinal.trim());
+          setVoiceStatus('STOPPED');
+        } else {
+          setVoiceStatus('IDLE');
+        }
       },
     });
+
     setSpeechRecognizer(rec);
   };
 
@@ -142,14 +195,18 @@ export const TalkToSaathiModal: React.FC = () => {
     const rawText = (textToProcess || query).trim();
     if (!rawText || isLoading) return;
 
+    // Cleanly stop microphone if still listening
     if (isListening && speechRecognizer) {
       speechRecognizer.stop();
       setIsListening(false);
     }
 
+    setVoiceStatus('PROCESSING');
     const currentInputText = rawText;
     setLastQuery(currentInputText);
     setQuery('');
+    setFinalTranscript('');
+    setInterimTranscript('');
 
     // Add user message to conversation
     const userMsgId = 'user-' + Date.now();
@@ -182,6 +239,7 @@ export const TalkToSaathiModal: React.FC = () => {
       };
 
       setMessages((prev) => [...prev, newSaathiMsg]);
+      setVoiceStatus('IDLE');
 
       // Read aloud if desired
       if (replyText) {
@@ -201,6 +259,7 @@ export const TalkToSaathiModal: React.FC = () => {
         canRetry: true,
       };
       setMessages((prev) => [...prev, newErrorMsg]);
+      setVoiceStatus('IDLE');
     } finally {
       setIsLoading(false);
     }
@@ -236,7 +295,6 @@ export const TalkToSaathiModal: React.FC = () => {
 
     const time = result.time || result.entities?.time || '11:00 AM';
 
-    // Persist with active user profile (personalization & data isolation)
     addReminder({
       userId: userProfile.userId,
       title: title,
@@ -283,7 +341,11 @@ export const TalkToSaathiModal: React.FC = () => {
     } else if (intent === 'CHECK_SAFETY') {
       if (lastQuery) setSafetyPreloadText(lastQuery);
       setActiveTab('safety');
-    } else if (intent === 'VIEW_REMINDERS' || intent === 'CREATE_APPOINTMENT' || intent === 'CREATE_REMINDER') {
+    } else if (
+      intent === 'VIEW_REMINDERS' ||
+      intent === 'CREATE_APPOINTMENT' ||
+      intent === 'CREATE_REMINDER'
+    ) {
       setActiveTab('reminders');
     }
   };
@@ -387,11 +449,119 @@ export const TalkToSaathiModal: React.FC = () => {
             </div>
           )}
 
+          {/* Active Voice Listening / Transcription Card (Requirements 5 & 14) */}
+          {(isListening || voiceStatus === 'TRANSCRIBING') && (
+            <div
+              data-testid="listening-indicator"
+              className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-400 shadow-sm space-y-2.5 animate-in fade-in duration-200"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600"></span>
+                  </span>
+                  <span
+                    data-testid="voice-status-text"
+                    className="text-sm font-bold text-stone-900 flex items-center gap-1.5"
+                  >
+                    {voiceStatus === 'TRANSCRIBING'
+                      ? isHindi
+                        ? 'साथी आपकी आवाज़ सुन रहा है...'
+                        : 'SAATHI is hearing you...'
+                      : isHindi
+                      ? '🔴 सुन रहा हूँ... अपनी बात कहिए'
+                      : '🔴 Listening...'}
+                  </span>
+                </div>
+                <span className="text-xs font-semibold text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded-full">
+                  {isHindi ? 'विराम ले सकते हैं' : 'Natural pauses allowed'}
+                </span>
+              </div>
+
+              {/* Distinguish Final vs Interim Text (Requirement 5) */}
+              <div className="bg-white p-3.5 rounded-xl border border-amber-200 text-base leading-relaxed min-h-[54px] shadow-2xs">
+                {finalTranscript && (
+                  <span data-testid="final-transcript" className="font-extrabold text-stone-900">
+                    {finalTranscript}{' '}
+                  </span>
+                )}
+                {interimTranscript && (
+                  <span
+                    data-testid="interim-transcript"
+                    className="font-bold text-amber-700 italic"
+                  >
+                    {interimTranscript}...
+                  </span>
+                )}
+                {!finalTranscript && !interimTranscript && (
+                  <span className="text-stone-400 italic text-sm">
+                    {isHindi
+                      ? 'आप जो बोलेंगे यहाँ दिखाई देगा...'
+                      : 'Speak now — your words will appear here...'}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Stopped Voice State (Requirement 7) */}
+          {voiceStatus === 'STOPPED' && !isLoading && (
+            <div
+              data-testid="voice-stopped-banner"
+              className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 flex items-center justify-between text-xs font-semibold text-emerald-900 animate-in fade-in"
+            >
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span data-testid="voice-status-text">
+                  {isHindi
+                    ? 'बात पूरी हो गई। नीचे लिखे संदेश की जाँच करें और तीर का बटन दबाएं।'
+                    : 'Transcript ready. Review below and tap Send.'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Voice Error State (Requirement 13) */}
+          {voiceError && (
+            <div
+              data-testid="voice-error-banner"
+              className="p-3 rounded-xl bg-rose-50 border border-rose-300 flex items-center justify-between text-sm font-semibold text-rose-900 animate-in fade-in"
+            >
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span data-testid="voice-status-text">{voiceError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleVoiceToggle}
+                className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors shrink-0"
+              >
+                {isHindi ? 'दोबारा बोलें' : 'Try Again'}
+              </button>
+            </div>
+          )}
+
+          {/* Unsupported Browser Warning (Requirement 13) */}
+          {!isSpeechRecognitionSupported() && (
+            <div
+              data-testid="voice-unsupported-banner"
+              className="p-3 rounded-xl bg-stone-100 border border-stone-300 text-xs font-medium text-stone-700 text-center"
+            >
+              {isHindi
+                ? 'इस ब्राउज़र में आवाज़ इनपुट समर्थित नहीं है। आप नीचे लिखकर पूछ सकते हैं।'
+                : "Voice input isn't available in this browser. You can type your request below."}
+            </div>
+          )}
+
           {/* Conversation History Stream */}
           {messages.map((msg) => {
             if (msg.sender === 'user') {
               return (
-                <div key={msg.id} className="flex justify-end animate-in slide-in-from-bottom-1 duration-200">
+                <div
+                  key={msg.id}
+                  className="flex justify-end animate-in slide-in-from-bottom-1 duration-200"
+                >
                   <div className="max-w-[85%] px-4 py-3 rounded-2xl rounded-tr-xs bg-stone-900 text-white shadow-sm">
                     <p className="text-base font-semibold leading-relaxed">{msg.text}</p>
                   </div>
@@ -643,40 +813,54 @@ export const TalkToSaathiModal: React.FC = () => {
           <div ref={chatEndRef} />
         </div>
 
-        {/* Input Bar with Voice Mic & Text Input */}
-        <div className="p-4 bg-white border-t border-stone-200 space-y-3 shrink-0">
-          {/* Big Mic Button */}
-          <div className="flex items-center justify-center">
+        {/* Senior-Friendly Voice Mic and Input Area (Requirements 7, 14, 15) */}
+        <div className="p-4 bg-white border-t border-stone-200 space-y-3.5 shrink-0">
+          {/* Prominent Senior-Friendly Mic Toggle Control */}
+          <div className="flex flex-col items-center justify-center gap-1.5">
             <button
               id="talk-big-mic-button"
+              data-testid="talk-big-mic-button"
               type="button"
               onClick={handleVoiceToggle}
-              className={`relative flex items-center justify-center rounded-full transition-all shadow-md active:scale-95 focus:outline-none ${
+              aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+              className={`relative px-6 py-3 rounded-2xl flex items-center gap-3 transition-all shadow-md active:scale-95 focus:outline-none focus:ring-4 ${
                 isListening
-                  ? 'w-16 h-16 bg-rose-600 text-white ring-8 ring-rose-200 animate-pulse'
-                  : 'w-14 h-14 bg-amber-600 hover:bg-amber-700 text-white'
+                  ? 'bg-rose-600 hover:bg-rose-700 text-white ring-8 ring-rose-200 focus:ring-rose-300 animate-pulse'
+                  : 'bg-amber-600 hover:bg-amber-700 text-white focus:ring-amber-300'
               }`}
-              aria-label={isListening ? 'Stop listening' : 'Start speaking'}
             >
               {isListening ? (
-                <MicOff className="w-7 h-7" />
+                <>
+                  <MicOff className="w-6 h-6 shrink-0" />
+                  <span className="font-extrabold text-base tracking-wide">
+                    {isHindi ? 'सुनना बंद करें' : 'Stop Listening'}
+                  </span>
+                </>
               ) : (
-                <Mic className="w-7 h-7" />
+                <>
+                  <Mic className="w-6 h-6 shrink-0" />
+                  <span className="font-extrabold text-base tracking-wide">
+                    {isHindi ? 'बोलना शुरू करें' : 'Start Speaking'}
+                  </span>
+                </>
               )}
             </button>
+
+            <p
+              data-testid="mic-helper-text"
+              className="text-center text-xs font-bold text-stone-500"
+            >
+              {isListening
+                ? isHindi
+                  ? 'सुन रहा हूँ... आप बीच में रुक कर भी बोल सकते हैं'
+                  : 'Listening... natural pauses allowed'
+                : isHindi
+                ? 'बोलने के लिए बटन दबाएं या नीचे लिखें'
+                : 'Tap to speak, or type below'}
+            </p>
           </div>
 
-          <p className="text-center text-xs font-bold text-stone-500">
-            {isListening
-              ? isHindi
-                ? 'सुन रहा हूँ... अपनी बात कहिए'
-                : 'Listening... please speak clearly'
-              : isHindi
-              ? 'बोलने के लिए माइक दबाएं या नीचे लिखें'
-              : 'Tap mic to speak, or type below'}
-          </p>
-
-          {/* Text Input Row */}
+          {/* Text Input Row — Always available for review and sending (Requirement 11) */}
           <div className="flex items-center gap-2">
             <input
               ref={inputRef}
