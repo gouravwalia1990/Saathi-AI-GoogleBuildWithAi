@@ -592,14 +592,16 @@ export const SafetyCheck: React.FC = () => {
                 </h4>
               </div>
               <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
-                {settings.trustedContactName} ({settings.trustedContactRelation})
+                {settings.trustedContactName
+                  ? `${settings.trustedContactName}${settings.trustedContactRelation ? ` (${settings.trustedContactRelation})` : ''}`
+                  : (isHindi ? 'पारिवारिक संपर्क' : 'Family Contact')}
               </span>
             </div>
 
             <p className="text-sm font-semibold text-stone-700">
               {isHindi
-                ? `क्या आप अपने विश्वस्त पारिवारिक संपर्क (${settings.trustedContactName}) को इस संदिग्ध संदेश के बारे में बताना चाहते हैं?`
-                : `Would you like to notify your trusted family member (${settings.trustedContactName}) about this safety concern?`}
+                ? `क्या आप अपने विश्वस्त पारिवारिक संपर्क (${settings.trustedContactName || 'पारिवारिक संपर्क'}) को इस संदिग्ध संदेश के बारे में बताना चाहते हैं?`
+                : `Would you like to notify your trusted family member (${settings.trustedContactName || 'Family Member'}) about this safety concern?`}
             </p>
 
             <div className="pt-1">
@@ -652,13 +654,13 @@ export const SafetyCheck: React.FC = () => {
         title={isHindi ? 'पारिवारिक सूचना पुष्टि' : 'Confirm Family Notification'}
         message={
           isHindi
-            ? `क्या आप अपने विश्वसनीय पारिवारिक सदस्य (${settings.trustedContactName} - ${settings.trustedContactPhone}) को इस सुरक्षा चिंता के बारे में सूचित करना चाहते हैं?`
-            : `Would you like to notify your trusted family member (${settings.trustedContactName} at ${settings.trustedContactPhone}) about this safety concern?`
+            ? `क्या आप अपने विश्वसनीय पारिवारिक सदस्य (${settings.trustedContactName || 'पारिवारिक संपर्क'}${settings.trustedContactPhone ? ` - ${settings.trustedContactPhone}` : ''}) को इस सुरक्षा चिंता के बारे में सूचित करना चाहते हैं?`
+            : `Would you like to notify your trusted family member (${settings.trustedContactName || 'Family Member'}${settings.trustedContactPhone ? ` at ${settings.trustedContactPhone}` : ''}) about this safety concern?`
         }
         subMessage={
           isHindi
-            ? 'डेमो मोड: यह आपके परिवार के सदस्य के लिए एक सिम्युलेटेड अलर्ट तैयार करेगा।'
-            : 'Demo Mode: This will dispatch a simulated safety alert to your family member.'
+            ? 'यह आपके परिवार के सदस्य के लिए एक सिम्युलेटेड सुरक्षा अलर्ट तैयार करेगा।'
+            : 'This will dispatch a simulated safety alert to your designated contact.'
         }
         confirmLabel={isHindi ? 'हाँ, सूचित करें' : 'Yes, Notify Family'}
         cancelLabel={isHindi ? 'रद्द करें' : 'Cancel'}

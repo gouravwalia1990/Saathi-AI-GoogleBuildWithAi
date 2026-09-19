@@ -7,6 +7,8 @@ export const Header: React.FC = () => {
   const {
     settings,
     updateSettings,
+    userProfile,
+    setActiveTab,
     isTalkModalOpen,
     setIsTalkModalOpen,
     isDemoMode,
@@ -55,6 +57,17 @@ export const Header: React.FC = () => {
                 <Shield className="w-3 h-3 text-emerald-600" />
                 Senior Safe AI
               </button>
+              {userProfile.displayName && (
+                <button
+                  onClick={() => setActiveTab('settings')}
+                  className="hidden md:inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-800 border border-stone-300 hover:bg-stone-200 transition-colors"
+                  title="View Profile Settings"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                  <span>{userProfile.displayName}</span>
+                  {isDemoMode && <span className="text-[10px] text-amber-800 font-extrabold">(Demo)</span>}
+                </button>
+              )}
             </div>
             <p className="text-xs sm:text-sm font-medium text-stone-600">
               {settings.language === 'hi' ? 'समझिए। पूछिए। कीजिए।' : 'Technology that adapts to you'}

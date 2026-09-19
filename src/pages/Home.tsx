@@ -23,6 +23,8 @@ import { SAMPLE_DOCUMENTS, SAMPLE_SCAMS } from '../data/demoData';
 export const Home: React.FC = () => {
   const {
     settings,
+    userProfile,
+    isDemoMode,
     reminders,
     safetyChecks,
     toggleReminderStatus,
@@ -60,29 +62,43 @@ export const Home: React.FC = () => {
     const billSummary =
       importantBills.length > 0
         ? isHindi
-          ? `आपके पास एक बिजली का बिल है, ₹${importantBills[0].amount || 1842}, जो ${importantBills[0].date} को देय है।`
-          : `You have a bill for ${importantBills[0].title}, amount ₹${importantBills[0].amount || 1842}, due ${importantBills[0].date}.`
-        : '';
+          ? `आपके पास ${importantBills[0].title} का बिल है, ₹${importantBills[0].amount || ''}, जो ${importantBills[0].date} को देय है।`
+          : `You have a bill for ${importantBills[0].title}, amount ₹${importantBills[0].amount || ''}, due ${importantBills[0].date}.`
+        : isHindi
+        ? 'आपके पास कोई लंबित बिल नहीं है।'
+        : 'You have no pending bills.';
 
     const apptSummary =
       appointments.length > 0
         ? isHindi
-          ? `आपका अगला अप्वाइंटमेंट है: ${appointments[0].title}, ${appointments[0].date} को सुबह ${appointments[0].time || '11:00 AM'} बजे।`
-          : `Your next appointment is: ${appointments[0].title}, ${appointments[0].date} at ${appointments[0].time || '11:00 AM'}.`
-        : '';
+          ? `आपका अगला अप्वाइंटमेंट है: ${appointments[0].title}, ${appointments[0].date} को ${appointments[0].time || ''} बजे।`
+          : `Your next appointment is: ${appointments[0].title}, ${appointments[0].date} at ${appointments[0].time || ''}.`
+        : isHindi
+        ? 'कोई आगामी अप्वाइंटमेंट नहीं है।'
+        : 'No upcoming appointments scheduled.';
 
     const safetySummary =
       highRiskSafetyItems.length > 0
         ? isHindi
-          ? `सुरक्षा ध्यान दें: 1 संदिग्ध संदेश की समीक्षा की गई है।`
-          : `Safety alert: 1 suspicious message needs your attention.`
+          ? `सुरक्षा ध्यान दें: ${highRiskSafetyItems.length} संदिग्ध संदेश की समीक्षा की गई है।`
+          : `Safety alert: ${highRiskSafetyItems.length} suspicious message needs your attention.`
         : isHindi
         ? `सभी सुरक्षा संदेश सुरक्षित प्रतीत होते हैं।`
         : `Your digital safety status is clear.`;
 
-    const speech = isHindi
-      ? `नमस्ते मिसेज शर्मा। आज के आपके मुख्य कार्य: ${billSummary} ${apptSummary} ${safetySummary} क्या आप किसी कार्य में मेरी मदद चाहते हैं?`
-      : `Good morning Mrs. Sharma. Here is what matters today: ${billSummary} ${apptSummary} ${safetySummary} Would you like help with any of these?`;
+    const userGreeting = userProfile.displayName
+      ? isHindi
+        ? `नमस्ते ${userProfile.displayName}।`
+        : `Good morning ${userProfile.displayName}.`
+      : isHindi
+      ? 'नमस्ते।'
+      : 'Good morning.';
+
+    const speech = `${userGreeting} ${
+      isHindi ? 'आज के आपके मुख्य कार्य:' : 'Here is what matters today:'
+    } ${billSummary} ${apptSummary} ${safetySummary} ${
+      isHindi ? 'क्या आप किसी कार्य में मेरी मदद चाहते हैं?' : 'Would you like help with any of these?'
+    }`;
 
     speakText(speech, isHindi ? 'hi' : 'en');
   };
@@ -133,13 +149,24 @@ export const Home: React.FC = () => {
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 mt-2 tracking-tight">
-              {isHindi ? 'नमस्ते, मिसेज शर्मा 👋' : 'Good Morning, Mrs. Sharma 👋'}
+              {userProfile.displayName
+                ? isHindi
+                  ? `नमस्ते, ${userProfile.displayName} 👋`
+                  : `Good Morning, ${userProfile.displayName} 👋`
+                : isHindi
+                ? 'नमस्ते 👋'
+                : 'Good Morning 👋'}
             </h2>
             <p className="text-base sm:text-lg font-medium text-stone-700 mt-1">
               {isHindi
                 ? 'तकनीक जो आपके अनुसार ढले, न कि आप तकनीक के अनुसार।'
                 : 'Technology that adapts to you, not the other way around.'}
             </p>
+            {isDemoMode && (
+              <span className="inline-block mt-2 text-xs font-bold text-amber-900 bg-amber-100/90 border border-amber-300 px-2 py-0.5 rounded-md">
+                Demo Mode: Mr. Sharma (Sample Data)
+              </span>
+            )}
           </div>
 
           {/* Big Talk to SAATHI Hero Action Button */}
@@ -191,23 +218,31 @@ export const Home: React.FC = () => {
           <div className="p-4 rounded-2xl bg-amber-50/70 border-2 border-amber-200 flex flex-col justify-between space-y-2">
             <div>
               <div className="flex items-center gap-1.5 text-xs font-black text-rose-800 uppercase">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-pulse" />
+                <span className={`w-2.5 h-2.5 rounded-full ${importantBills.length > 0 ? 'bg-rose-600 animate-pulse' : 'bg-emerald-500'}`} />
                 <span>{isHindi ? 'महत्वपूर्ण देय बिल' : 'Important Bill'}</span>
               </div>
               <p className="font-extrabold text-stone-900 text-base mt-1">
                 {importantBills.length > 0
-                  ? `${importantBills[0].title} — ₹${importantBills[0].amount || 1842}`
-                  : 'Electricity Bill — ₹1,842'}
+                  ? `${importantBills[0].title} — ₹${importantBills[0].amount || ''}`
+                  : isHindi ? 'कोई लंबित बिल नहीं' : 'No Pending Bills'}
               </p>
               <span className="text-xs font-bold text-stone-600">
-                {isHindi ? 'देय तिथि: कल (24 सितंबर)' : 'Due Tomorrow • Avoid late fees'}
+                {importantBills.length > 0
+                  ? isHindi ? `देय तिथि: ${importantBills[0].date}` : `Due: ${importantBills[0].date}`
+                  : isHindi ? 'सभी बिल चुकता हैं' : 'All bills caught up'}
               </span>
             </div>
             <button
-              onClick={startBillJourney}
+              onClick={() => {
+                if (importantBills.length > 0) {
+                  startBillJourney();
+                } else {
+                  setActiveTab('explain');
+                }
+              }}
               className="mt-2 text-xs font-black text-amber-900 hover:text-amber-950 flex items-center gap-1 bg-white px-3 py-1.5 rounded-lg border border-amber-300 self-start shadow-2xs"
             >
-              <span>{isHindi ? 'बिल विवरण देखें' : 'View Action Plan'}</span>
+              <span>{importantBills.length > 0 ? (isHindi ? 'बिल विवरण देखें' : 'View Action Plan') : (isHindi ? 'नया बिल स्कैन करें' : 'Scan a Document')}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -216,23 +251,31 @@ export const Home: React.FC = () => {
           <div className="p-4 rounded-2xl bg-sky-50/70 border-2 border-sky-200 flex flex-col justify-between space-y-2">
             <div>
               <div className="flex items-center gap-1.5 text-xs font-black text-sky-800 uppercase">
-                <span className="w-2.5 h-2.5 rounded-full bg-sky-600" />
+                <span className={`w-2.5 h-2.5 rounded-full ${appointments.length > 0 ? 'bg-sky-600' : 'bg-stone-400'}`} />
                 <span>{isHindi ? 'डॉक्टर अप्वाइंटमेंट' : 'Doctor Appointment'}</span>
               </div>
               <p className="font-extrabold text-stone-900 text-base mt-1">
                 {appointments.length > 0
-                  ? `${appointments[0].title} — ${appointments[0].time || '11:00 AM'}`
-                  : 'Doctor Appointment — 11:00 AM'}
+                  ? `${appointments[0].title} — ${appointments[0].time || ''}`
+                  : isHindi ? 'कोई आगामी अप्वाइंटमेंट नहीं' : 'No Upcoming Appointments'}
               </p>
               <span className="text-xs font-bold text-stone-600">
-                {isHindi ? 'कल सुबह 11:00 बजे' : 'Tomorrow • Clinic Visit'}
+                {appointments.length > 0
+                  ? appointments[0].date
+                  : isHindi ? 'नया समय निर्धारित करने के लिए बोलें' : 'Use voice to schedule'}
               </span>
             </div>
             <button
-              onClick={() => setActiveTab('reminders')}
+              onClick={() => {
+                if (appointments.length > 0) {
+                  setActiveTab('reminders');
+                } else {
+                  startAppointmentJourney();
+                }
+              }}
               className="mt-2 text-xs font-black text-sky-900 hover:text-sky-950 flex items-center gap-1 bg-white px-3 py-1.5 rounded-lg border border-sky-300 self-start shadow-2xs"
             >
-              <span>{isHindi ? 'रिमाइंडर सूची' : 'View Schedule'}</span>
+              <span>{appointments.length > 0 ? (isHindi ? 'रिमाइंडर सूची' : 'View Schedule') : (isHindi ? 'अपॉइंटमेंट जोड़ें' : 'Add Appointment')}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

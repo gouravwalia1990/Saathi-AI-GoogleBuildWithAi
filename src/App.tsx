@@ -4,6 +4,7 @@ import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { TalkToSaathiModal } from './components/TalkToSaathiModal';
 import { SystemDiagnosticsModal } from './components/SystemDiagnosticsModal';
+import { OnboardingModal } from './components/OnboardingModal';
 import { Home } from './pages/Home';
 import { Explain } from './pages/Explain';
 import { SafetyCheck } from './pages/SafetyCheck';
@@ -73,6 +74,9 @@ const MainLayout: React.FC = () => {
 
       {/* Conversational Assistant Voice Modal */}
       <TalkToSaathiModal />
+
+      {/* Senior Onboarding Modal (Personalization & Isolation) */}
+      <OnboardingModal />
 
       {/* System Diagnostics & Evaluation Monitor */}
       <SystemDiagnosticsModal />

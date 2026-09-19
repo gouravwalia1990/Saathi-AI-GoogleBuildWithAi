@@ -1,7 +1,20 @@
-import { Reminder, UserSettings } from '../types';
+import { Reminder, UserProfile, UserSettings } from '../types';
 
-export const INITIAL_SETTINGS: UserSettings = {
-  userName: 'Mrs. Sharma',
+// Isolated Demo Persona (Only used when explicit Demo Mode is activated)
+export const DEMO_USER_PROFILE: UserProfile = {
+  userId: 'demo-user-sharma',
+  displayName: 'Mr. Sharma',
+  preferredLanguage: 'en',
+  trustedContactName: 'Rahul Sharma',
+  trustedContactRelation: 'Son',
+  trustedContactPhone: '+91 98765 43210',
+  isOnboarded: true,
+  createdAt: '2026-09-18T00:00:00.000Z',
+  updatedAt: '2026-09-18T00:00:00.000Z',
+};
+
+export const DEMO_SETTINGS: UserSettings = {
+  userName: 'Mr. Sharma',
   language: 'en',
   textSize: 'large', // Senior-first default
   highContrast: false,
@@ -11,10 +24,37 @@ export const INITIAL_SETTINGS: UserSettings = {
   trustedContactPhone: '+91 98765 43210',
 };
 
-export const INITIAL_REMINDERS: Reminder[] = [
+// Clean defaults for real anonymous visitors
+export const createDefaultVisitorProfile = (sessionId: string): UserProfile => ({
+  userId: sessionId,
+  displayName: '',
+  preferredLanguage: 'en',
+  trustedContactName: '',
+  trustedContactRelation: '',
+  trustedContactPhone: '',
+  isOnboarded: false,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+});
+
+export const createDefaultVisitorSettings = (): UserSettings => ({
+  userName: '',
+  language: 'en',
+  textSize: 'large',
+  highContrast: false,
+  autoReadAloud: false,
+  trustedContactName: '',
+  trustedContactRelation: '',
+  trustedContactPhone: '',
+});
+
+// Alias for backward compatibility with existing tests
+export const INITIAL_SETTINGS: UserSettings = DEMO_SETTINGS;
+
+export const DEMO_REMINDERS: Reminder[] = [
   {
     id: 'rem-1',
-    userId: 'user-sharma',
+    userId: 'demo-user-sharma',
     title: 'Electricity Bill',
     description: 'BSES Rajdhani Power Limited - Monthly consumption bill',
     date: '2026-09-24',
@@ -28,7 +68,7 @@ export const INITIAL_REMINDERS: Reminder[] = [
   },
   {
     id: 'rem-2',
-    userId: 'user-sharma',
+    userId: 'demo-user-sharma',
     title: 'Doctor Appointment',
     description: 'Routine blood pressure & sugar checkup with Dr. Mehra at Max Clinic',
     date: '2026-09-19', // Tomorrow
@@ -42,7 +82,7 @@ export const INITIAL_REMINDERS: Reminder[] = [
   },
   {
     id: 'rem-3',
-    userId: 'user-sharma',
+    userId: 'demo-user-sharma',
     title: 'Morning Heart Medication',
     description: 'Take 1 tablet of Ecosprin after breakfast with warm water',
     date: '2026-09-19',
@@ -55,6 +95,8 @@ export const INITIAL_REMINDERS: Reminder[] = [
     createdAt: '2026-09-17T08:00:00.000Z',
   },
 ];
+
+export const INITIAL_REMINDERS: Reminder[] = DEMO_REMINDERS;
 
 export interface DemoSample {
   id: string;

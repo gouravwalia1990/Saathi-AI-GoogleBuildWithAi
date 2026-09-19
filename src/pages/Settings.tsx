@@ -4,57 +4,234 @@ import {
   Settings as SettingsIcon,
   Globe,
   Type,
-  Eye,
-  Volume2,
   Users,
   ShieldCheck,
   RotateCcw,
   CheckCircle2,
   Lock,
+  User,
+  Trash2,
+  Sparkles,
 } from 'lucide-react';
 import { speakText } from '../services/speechService';
-import { Language, TextSize } from '../types';
 
 export const Settings: React.FC = () => {
-  const { settings, updateSettings, resetDemoData, showToast } = useApp();
+  const {
+    settings,
+    updateSettings,
+    userProfile,
+    updateUserProfile,
+    sessionId,
+    isDemoMode,
+    setIsDemoMode,
+    resetSessionData,
+    resetDemoData,
+    showToast,
+  } = useApp();
 
-  const [contactName, setContactName] = useState(settings.trustedContactName);
-  const [contactPhone, setContactPhone] = useState(settings.trustedContactPhone);
-  const [contactRelation, setContactRelation] = useState(settings.trustedContactRelation);
-  const [isEditingContact, setIsEditingContact] = useState(false);
+  const [displayName, setDisplayName] = useState(userProfile.displayName || '');
+  const [contactName, setContactName] = useState(userProfile.trustedContactName || '');
+  const [contactPhone, setContactPhone] = useState(userProfile.trustedContactPhone || '');
+  const [contactRelation, setContactRelation] = useState(userProfile.trustedContactRelation || 'Family Member');
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   const isHindi = settings.language === 'hi';
 
-  const handleSaveContact = () => {
-    updateSettings({
-      trustedContactName: contactName.trim() || 'Rahul Sharma',
-      trustedContactPhone: contactPhone.trim() || '+91 98765 43210',
-      trustedContactRelation: contactRelation.trim() || 'Son',
+  const handleSaveProfile = () => {
+    updateUserProfile({
+      displayName: displayName.trim(),
+      trustedContactName: contactName.trim(),
+      trustedContactRelation: contactRelation.trim(),
+      trustedContactPhone: contactPhone.trim(),
     });
-    setIsEditingContact(false);
-    showToast(isHindi ? 'पारिवारिक संपर्क सहेजा गया' : 'Family contact saved');
+    setIsEditingProfile(false);
+    showToast(isHindi ? 'प्रोफ़ाइल सहेज ली गई' : 'Profile updated successfully');
   };
 
   return (
     <div className="space-y-6 pb-24 animate-in fade-in duration-200">
       {/* Header Banner */}
-      <div className="bg-stone-100 border-2 border-stone-200 rounded-3xl p-5 sm:p-6 shadow-xs flex items-center gap-3.5">
-        <div className="w-12 h-12 rounded-2xl bg-stone-800 text-white flex items-center justify-center shadow-xs shrink-0">
-          <SettingsIcon className="w-6 h-6" />
+      <div className="bg-stone-100 border-2 border-stone-200 rounded-3xl p-5 sm:p-6 shadow-xs flex items-center justify-between gap-3.5">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-stone-800 text-white flex items-center justify-center shadow-xs shrink-0">
+            <SettingsIcon className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-extrabold text-stone-900 tracking-tight">
+              {isHindi ? 'सेटिंग्स और सुगमता' : 'Settings & Accessibility'}
+            </h2>
+            <p className="text-sm font-semibold text-stone-600">
+              {isHindi
+                ? 'अक्षर का आकार, भाषा, और सुरक्षा संपर्क प्रबंधित करें'
+                : 'Customize text size, language, and trusted family contact'}
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-stone-900 tracking-tight">
-            {isHindi ? 'सेटिंग्स और सुगमता' : 'Settings & Accessibility'}
-          </h2>
-          <p className="text-sm font-semibold text-stone-600">
-            {isHindi
-              ? 'अक्षर का आकार, भाषा, और सुरक्षा संपर्क प्रबंधित करें'
-              : 'Customize text size, language, and trusted family contact'}
-          </p>
+
+        {isDemoMode && (
+          <span className="hidden sm:inline-block px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300">
+            Demo Mode Active
+          </span>
+        )}
+      </div>
+
+      {/* 1. User Profile & Personalization (P0 Isolation) */}
+      <div className="p-5 sm:p-6 rounded-3xl bg-white border-2 border-stone-200 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <User className="w-5 h-5 text-amber-700" />
+            <h3 className="text-lg font-extrabold text-stone-900">
+              {isHindi ? 'आपकी प्रोफ़ाइल और निजी जानकारी' : 'Profile & Personalization'}
+            </h3>
+          </div>
+          {!isEditingProfile && (
+            <button
+              data-testid="settings-edit-profile-btn"
+              onClick={() => {
+                setDisplayName(userProfile.displayName || '');
+                setContactName(userProfile.trustedContactName || '');
+                setContactRelation(userProfile.trustedContactRelation || 'Family Member');
+                setContactPhone(userProfile.trustedContactPhone || '');
+                setIsEditingProfile(true);
+              }}
+              className="text-xs font-bold text-amber-800 hover:text-amber-900 bg-amber-50 px-3 py-1 rounded-lg border border-amber-200"
+            >
+              {isHindi ? 'संपादित करें' : 'Edit Profile'}
+            </button>
+          )}
+        </div>
+
+        {isEditingProfile ? (
+          <div className="space-y-4 pt-1">
+            <div>
+              <label className="block text-xs font-bold text-stone-700 mb-1">
+                {isHindi ? 'आपका नाम (SAATHI आपको क्या कहे)' : 'Your Name (What SAATHI calls you)'}
+              </label>
+              <input
+                data-testid="settings-user-name-input"
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder={isHindi ? 'उदा. प्रिया, गुप्ता जी' : 'e.g. Alice, Mr. Gupta'}
+                className="w-full p-3 rounded-xl border-2 border-stone-300 font-bold text-sm outline-none focus:border-amber-600"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {isHindi ? 'विश्वसनीय संपर्क नाम' : 'Trusted Contact Name'}
+                </label>
+                <input
+                  data-testid="settings-contact-name-input"
+                  type="text"
+                  value={contactName}
+                  onChange={(e) => setContactName(e.target.value)}
+                  placeholder={isHindi ? 'उदा. राहुल, पूजा' : 'e.g. David, Sarah'}
+                  className="w-full p-3 rounded-xl border-2 border-stone-300 font-bold text-sm outline-none focus:border-amber-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {isHindi ? 'संबंध' : 'Relationship'}
+                </label>
+                <input
+                  data-testid="settings-contact-relation-input"
+                  type="text"
+                  value={contactRelation}
+                  onChange={(e) => setContactRelation(e.target.value)}
+                  placeholder={isHindi ? 'उदा. बेटा, बेटी, मित्र' : 'e.g. Son, Daughter, Friend'}
+                  className="w-full p-3 rounded-xl border-2 border-stone-300 font-bold text-sm outline-none focus:border-amber-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {isHindi ? 'फ़ोन नंबर' : 'Phone Number'}
+                </label>
+                <input
+                  data-testid="settings-contact-phone-input"
+                  type="text"
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  className="w-full p-3 rounded-xl border-2 border-stone-300 font-bold text-sm outline-none focus:border-amber-600"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                data-testid="settings-save-contact-btn"
+                onClick={handleSaveProfile}
+                className="py-2.5 px-5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm shadow-xs transition-colors"
+              >
+                {isHindi ? 'सहेजें' : 'Save Profile'}
+              </button>
+              <button
+                onClick={() => setIsEditingProfile(false)}
+                className="py-2.5 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-sm transition-colors"
+              >
+                {isHindi ? 'रद्द करें' : 'Cancel'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-900 block mb-1">
+                {isHindi ? 'उपयोगकर्ता नाम' : 'User Display Name'}
+              </span>
+              <p className="text-lg font-black text-stone-900">
+                {userProfile.displayName || (
+                  <span className="text-stone-400 italic font-semibold">
+                    {isHindi ? 'सेट नहीं है' : 'Not set yet'}
+                  </span>
+                )}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-900 block mb-1">
+                {isHindi ? 'विश्वसनीय पारिवारिक संपर्क' : 'Trusted Family Contact'}
+              </span>
+              <p className="text-base font-black text-stone-900">
+                {userProfile.trustedContactName ? (
+                  `${userProfile.trustedContactName} (${userProfile.trustedContactRelation || 'Contact'})`
+                ) : (
+                  <span className="text-stone-400 italic font-semibold">
+                    {isHindi ? 'सेट नहीं है' : 'Not set yet'}
+                  </span>
+                )}
+              </p>
+              {userProfile.trustedContactPhone && (
+                <span className="text-xs font-semibold text-stone-600 block mt-0.5">
+                  {userProfile.trustedContactPhone}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Isolation Session Info */}
+        <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-xs text-stone-500">
+          <span>
+            {isDemoMode ? (
+              <span className="font-bold text-amber-800">
+                Mode: Demo Persona (Mr. Sharma Fixture)
+              </span>
+            ) : (
+              <span>
+                Isolated Session: <code className="font-mono text-stone-700 font-bold">{sessionId}</code>
+              </span>
+            )}
+          </span>
+          <span className="text-stone-400">Client-Side Namespaced Isolation</span>
         </div>
       </div>
 
-      {/* 1. Language Option */}
+      {/* 2. Language Option */}
       <div className="p-5 sm:p-6 rounded-3xl bg-white border-2 border-stone-200 shadow-sm space-y-3">
         <div className="flex items-center gap-2">
           <Globe className="w-5 h-5 text-amber-700" />
@@ -103,7 +280,7 @@ export const Settings: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Text Size Control (Section 17 & 18) */}
+      {/* 3. Text Size Control */}
       <div className="p-5 sm:p-6 rounded-3xl bg-white border-2 border-stone-200 shadow-sm space-y-3">
         <div className="flex items-center gap-2">
           <Type className="w-5 h-5 text-amber-700" />
@@ -118,86 +295,44 @@ export const Settings: React.FC = () => {
         </p>
 
         <div className="grid grid-cols-3 gap-2 pt-1">
-          {(['normal', 'large', 'xlarge'] as TextSize[]).map((size) => {
-            const isSelected = settings.textSize === size;
-            const labels = {
-              normal: isHindi ? 'सामान्य' : 'Normal',
-              large: isHindi ? 'बड़ा' : 'Large',
-              xlarge: isHindi ? 'अति विशाल' : 'Extra Large',
-            };
-            return (
-              <button
-                key={size}
-                type="button"
-                onClick={() => updateSettings({ textSize: size })}
-                className={`py-3.5 px-2 rounded-2xl font-extrabold text-sm sm:text-base border-2 transition-all flex flex-col items-center justify-center gap-1 ${
-                  isSelected
-                    ? 'bg-amber-700 text-white border-amber-700 shadow-sm'
-                    : 'bg-stone-50 hover:bg-stone-100 text-stone-800 border-stone-300'
-                }`}
-              >
-                <span className={size === 'xlarge' ? 'text-lg' : size === 'large' ? 'text-base' : 'text-sm'}>
-                  Aa
-                </span>
-                <span>{labels[size]}</span>
-              </button>
-            );
-          })}
+          <button
+            type="button"
+            onClick={() => updateSettings({ textSize: 'normal' })}
+            className={`py-3 rounded-2xl font-bold text-sm border-2 transition-all ${
+              settings.textSize === 'normal'
+                ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                : 'bg-stone-50 hover:bg-stone-100 text-stone-800 border-stone-300'
+            }`}
+          >
+            {isHindi ? 'सामान्य' : 'Normal'}
+          </button>
+          <button
+            type="button"
+            onClick={() => updateSettings({ textSize: 'large' })}
+            className={`py-3 rounded-2xl font-bold text-base border-2 transition-all ${
+              settings.textSize === 'large'
+                ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                : 'bg-stone-50 hover:bg-stone-100 text-stone-800 border-stone-300'
+            }`}
+          >
+            {isHindi ? 'बड़ा' : 'Large'}
+          </button>
+          <button
+            type="button"
+            onClick={() => updateSettings({ textSize: 'xlarge' })}
+            className={`py-3 rounded-2xl font-bold text-lg border-2 transition-all ${
+              settings.textSize === 'xlarge'
+                ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                : 'bg-stone-50 hover:bg-stone-100 text-stone-800 border-stone-300'
+            }`}
+          >
+            {isHindi ? 'अति बड़ा' : 'Extra Large'}
+          </button>
         </div>
       </div>
 
-      {/* 2b. Reminder Preference (Section 10) */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-white border-2 border-stone-200 shadow-sm space-y-3">
-        <div className="flex items-center gap-2">
-          <Volume2 className="w-5 h-5 text-amber-700" />
-          <h3 className="text-lg font-extrabold text-stone-900">
-            {isHindi ? 'रिमाइंडर प्राथमिकता (Reminder Timing)' : 'Reminder Schedule Preference'}
-          </h3>
-        </div>
-        <p className="text-sm font-medium text-stone-600">
-          {isHindi
-            ? 'बिल और अप्वाइंटमेंट के लिए साथी आपको कब याद दिलाए?'
-            : 'Choose default timing for proactive bill and task reminders.'}
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-          {[
-            { id: '1_day_before', en: '1 Day Before', hi: '1 दिन पहले' },
-            { id: 'same_day', en: 'Same Day', hi: 'उसी दिन सुबह' },
-            { id: '2_days_before', en: '2 Days Before', hi: '2 दिन पहले' },
-          ].map((pref) => {
-            const isSelected = (settings.reminderPreference || '1_day_before') === pref.id;
-            return (
-              <button
-                key={pref.id}
-                type="button"
-                onClick={() => {
-                  updateSettings({ reminderPreference: pref.id as any });
-                  showToast(isHindi ? 'रिमाइंडर समय प्राथमिकता अपडेट की गई' : 'Reminder preference updated');
-                }}
-                className={`py-3 px-3 rounded-2xl font-black text-sm border-2 transition-all flex items-center justify-center gap-2 ${
-                  isSelected
-                    ? 'bg-amber-700 text-white border-amber-700 shadow-sm'
-                    : 'bg-stone-50 hover:bg-stone-100 text-stone-800 border-stone-300'
-                }`}
-              >
-                {isSelected && <CheckCircle2 className="w-4 h-4" />}
-                <span>{isHindi ? pref.hi : pref.en}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 3. Accessibility Toggles */}
+      {/* 4. Accessibility Toggles */}
       <div className="p-5 sm:p-6 rounded-3xl bg-white border-2 border-stone-200 shadow-sm space-y-4">
-        <div className="flex items-center gap-2">
-          <Eye className="w-5 h-5 text-amber-700" />
-          <h3 className="text-lg font-extrabold text-stone-900">
-            {isHindi ? 'सुगमता एवं कंट्रास्ट' : 'Accessibility Features'}
-          </h3>
-        </div>
-
         {/* High Contrast */}
         <div className="flex items-center justify-between py-2 border-b border-stone-100">
           <div>
@@ -247,92 +382,7 @@ export const Settings: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. Trusted Family Member Support (Section 16 & 17) */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-white border-2 border-stone-200 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-amber-700" />
-            <h3 className="text-lg font-extrabold text-stone-900">
-              {isHindi ? 'विश्वसनीय पारिवारिक संपर्क' : 'Trusted Family Member'}
-            </h3>
-          </div>
-          {!isEditingContact && (
-            <button
-              onClick={() => setIsEditingContact(true)}
-              className="text-xs font-bold text-amber-800 hover:text-amber-900 bg-amber-50 px-3 py-1 rounded-lg border border-amber-200"
-            >
-              {isHindi ? 'बदलें' : 'Edit'}
-            </button>
-          )}
-        </div>
-
-        {isEditingContact ? (
-          <div className="space-y-3 pt-1">
-            <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1">
-                Name
-              </label>
-              <input
-                type="text"
-                value={contactName}
-                onChange={(e) => setContactName(e.target.value)}
-                className="w-full p-3 rounded-xl border-2 border-stone-300 font-bold text-sm"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Relation
-                </label>
-                <input
-                  type="text"
-                  value={contactRelation}
-                  onChange={(e) => setContactRelation(e.target.value)}
-                  className="w-full p-3 rounded-xl border-2 border-stone-300 font-bold text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Phone
-                </label>
-                <input
-                  type="text"
-                  value={contactPhone}
-                  onChange={(e) => setContactPhone(e.target.value)}
-                  className="w-full p-3 rounded-xl border-2 border-stone-300 font-bold text-sm"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 pt-2">
-              <button
-                onClick={handleSaveContact}
-                className="py-2.5 px-4 rounded-xl bg-amber-700 text-white font-bold text-sm"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setIsEditingContact(false)}
-                className="py-2.5 px-4 rounded-xl bg-stone-100 text-stone-700 font-bold text-sm"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 flex items-center justify-between">
-            <div>
-              <span className="text-base font-extrabold text-stone-900 block">
-                {settings.trustedContactName} ({settings.trustedContactRelation})
-              </span>
-              <span className="text-xs font-semibold text-stone-600">
-                {settings.trustedContactPhone} • Simulated alerts for high-risk scam checks
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 5. Privacy & Trust Guarantees (Section 17 & Principle 5) */}
+      {/* 5. Trust & Privacy Guarantee */}
       <div className="p-5 sm:p-6 rounded-3xl bg-amber-50/80 border-2 border-amber-300 space-y-3">
         <div className="flex items-center gap-2 text-stone-900 font-black text-base">
           <ShieldCheck className="w-6 h-6 text-amber-700" />
@@ -359,28 +409,47 @@ export const Settings: React.FC = () => {
         </div>
       </div>
 
-      {/* 6. Demo Data Reset (Evaluator utility) */}
+      {/* 6. Session Isolation & Reset Actions */}
       <div className="p-5 rounded-3xl bg-white border-2 border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <span className="font-extrabold text-stone-900 text-base block">
-            {isHindi ? 'डेमो डेटा रीसेट करें' : 'Reset Demo Application State'}
+            {isDemoMode
+              ? isHindi
+                ? 'डेमो डेटा रीसेट करें'
+                : 'Reset Demo State (Mr. Sharma)'
+              : isHindi
+              ? 'मेरा सत्र डेटा साफ़ करें'
+              : 'Clear My Session & Start Fresh'}
           </span>
           <span className="text-xs font-medium text-stone-500">
-            {isHindi
-              ? 'पुनः आरंभिक स्थिति में लौटने के लिए सभी रिमाइंडर व सेटिंग्स रीसेट करें'
-              : 'Restore initial pre-seeded reminders and test cases for evaluation'}
+            {isDemoMode
+              ? isHindi
+                ? 'नमूना डेटा (मिस्टर शर्मा) को मूल स्थिति में पुनर्स्थापित करें'
+                : 'Restore original sample fixtures for Mr. Sharma'
+              : isHindi
+              ? 'वर्तमान सत्र के सभी व्यक्तिगत रिमाइंडर व सेटिंग्स साफ़ करें'
+              : 'Erase current isolated session data and restart onboarding'}
           </span>
         </div>
         <button
-          onClick={resetDemoData}
+          data-testid="settings-reset-session-btn"
+          onClick={isDemoMode ? resetDemoData : resetSessionData}
           className="px-4 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-800 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-colors self-start sm:self-center"
         >
-          <RotateCcw className="w-4 h-4" />
-          <span>{isHindi ? 'डेटा रीसेट' : 'Reset Demo Data'}</span>
+          {isDemoMode ? <RotateCcw className="w-4 h-4" /> : <Trash2 className="w-4 h-4 text-rose-600" />}
+          <span>
+            {isDemoMode
+              ? isHindi
+                ? 'डेमो रीसेट'
+                : 'Reset Demo Data'
+              : isHindi
+              ? 'सत्र साफ़ करें'
+              : 'Clear My Session'}
+          </span>
         </button>
       </div>
 
-      {/* Philosophy closing message (Section 33 & 34) */}
+      {/* Philosophy closing message */}
       <div className="text-center pt-4 pb-2 space-y-1">
         <p className="text-xs font-bold uppercase tracking-wider text-stone-500">
           SAATHI AI • A Trusted Digital Companion

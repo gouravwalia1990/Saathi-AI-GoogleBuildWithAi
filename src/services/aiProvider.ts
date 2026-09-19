@@ -345,7 +345,7 @@ export class TestIntentDetector implements IntentDetector {
       },
       conversationalReply: isHindi
         ? `नमस्ते! मैं साथी हूँ। आप मुझसे कोई भी बिल समझाने, संदेश की सुरक्षा जांचने, या रिमाइंडर तय करने के लिए कह सकते हैं।`
-        : `Hello Mrs. Sharma! I am SAATHI. You can ask me to explain a bill, check a suspicious SMS, or schedule an appointment.`,
+        : `Hello! I am SAATHI. You can ask me to explain a bill, check a suspicious SMS, or schedule an appointment.`,
     });
   }
 }

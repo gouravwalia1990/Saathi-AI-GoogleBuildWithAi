@@ -28,6 +28,8 @@ export const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({
     setIsDiagnosticsOpen,
     isDemoMode,
     toggleDemoMode,
+    sessionId,
+    userProfile,
     setActiveTab,
     setExplainPreloadText,
     setSafetyPreloadText,
@@ -151,10 +153,15 @@ export const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({
           <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <Database className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span className="font-bold text-sm text-stone-800">Storage & State Persistence</span>
+              <div>
+                <span className="font-bold text-sm text-stone-800 block">Storage & Session Isolation</span>
+                <span className="text-xs text-stone-500">
+                  {isDemoMode ? 'Demo Persona (Mr. Sharma)' : `Isolated Visitor (${userProfile.displayName || 'Anonymous'})`}
+                </span>
+              </div>
             </div>
-            <span className="text-xs font-black px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
-              {diagnostics.persistence}
+            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
+              {isDemoMode ? 'namespace: demo' : `namespace: ${sessionId.slice(0, 12)}`}
             </span>
           </div>
         </div>

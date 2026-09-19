@@ -23,6 +23,7 @@ export const Reminders: React.FC = () => {
     addReminder,
     toggleReminderStatus,
     deleteReminder,
+    userProfile,
     settings,
     showToast,
   } = useApp();
@@ -82,7 +83,7 @@ export const Reminders: React.FC = () => {
     if (!newTitle.trim()) return;
 
     addReminder({
-      userId: 'user-sharma',
+      userId: userProfile.userId,
       title: newTitle.trim(),
       description: newDescription.trim() || undefined,
       date: newDate || '2026-09-19',

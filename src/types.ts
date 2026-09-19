@@ -117,6 +117,18 @@ export interface DetectedIntent {
   conversationalReply: string;
 }
 
+export interface UserProfile {
+  userId: string;
+  displayName: string;
+  preferredLanguage: Language;
+  trustedContactName: string;
+  trustedContactRelation: string;
+  trustedContactPhone?: string;
+  isOnboarded: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface UserSettings {
   userName: string;
   language: Language;
