@@ -10,6 +10,7 @@ import {
   validateDetectedIntent,
   validateInputText,
 } from './aiValidator';
+import { fastDataHash } from '../utils/imageOptimizer';
 
 // ==========================================
 // 1. AI PROVIDER INTERFACES (V3 Section 14)
@@ -20,6 +21,7 @@ export interface DocumentAnalysisInput {
   imageBase64?: string;
   mimeType?: string;
   language?: Language;
+  sessionScope?: string;
 }
 
 export interface SafetyAnalysisInput {
@@ -27,12 +29,14 @@ export interface SafetyAnalysisInput {
   imageBase64?: string;
   mimeType?: string;
   language?: Language;
+  sessionScope?: string;
 }
 
 export interface IntentDetectionInput {
   query: string;
   language?: Language;
   userReminders?: any[];
+  sessionScope?: string;
 }
 
 export interface DocumentAnalyzer {
@@ -47,10 +51,56 @@ export interface IntentDetector {
   detect(input: IntentDetectionInput): Promise<DetectedIntent>;
 }
 
-// In-memory caching layer to prevent duplicate requests
-const docCache = new Map<string, DocumentAnalysisResult>();
-const safetyCache = new Map<string, SafetyAnalysisResult>();
-const intentCache = new Map<string, DetectedIntent>();
+// Bounded, session-scoped caching layer to prevent duplicate AI requests and isolate user data
+const MAX_CACHE_ENTRIES_PER_SCOPE = 50;
+
+const scopedDocCache = new Map<string, Map<string, DocumentAnalysisResult>>();
+const scopedSafetyCache = new Map<string, Map<string, SafetyAnalysisResult>>();
+const scopedIntentCache = new Map<string, Map<string, DetectedIntent>>();
+
+// In-flight request deduplication map to prevent parallel identical requests
+const inFlightClientRequests = new Map<string, Promise<any>>();
+
+function getScopeCache<T>(
+  cacheStore: Map<string, Map<string, T>>,
+  scope: string
+): Map<string, T> {
+  let scopeMap = cacheStore.get(scope);
+  if (!scopeMap) {
+    scopeMap = new Map<string, T>();
+    cacheStore.set(scope, scopeMap);
+  }
+  return scopeMap;
+}
+
+function setBoundedCache<T>(
+  cacheStore: Map<string, Map<string, T>>,
+  scope: string,
+  key: string,
+  value: T
+) {
+  const scopeMap = getScopeCache(cacheStore, scope);
+  if (scopeMap.size >= MAX_CACHE_ENTRIES_PER_SCOPE) {
+    const oldestKey = scopeMap.keys().next().value;
+    if (oldestKey) scopeMap.delete(oldestKey);
+  }
+  scopeMap.set(key, value);
+}
+
+/**
+ * Clears cached AI responses for a specific session scope or all caches.
+ */
+export function clearAICache(sessionScope?: string) {
+  if (sessionScope) {
+    scopedDocCache.delete(sessionScope);
+    scopedSafetyCache.delete(sessionScope);
+    scopedIntentCache.delete(sessionScope);
+  } else {
+    scopedDocCache.clear();
+    scopedSafetyCache.clear();
+    scopedIntentCache.clear();
+  }
+}
 
 // ==========================================
 // 2. REAL GEMINI PROVIDERS (V3 Section 14)
@@ -58,13 +108,21 @@ const intentCache = new Map<string, DetectedIntent>();
 
 export class GeminiDocumentAnalyzer implements DocumentAnalyzer {
   async analyze(input: DocumentAnalysisInput): Promise<DocumentAnalysisResult> {
-    const textInput = input.text || '';
-    const cacheKey = input.imageBase64
-      ? `doc:img:${input.imageBase64.slice(0, 80)}:${input.language}`
-      : `doc:txt:${input.language || 'en'}:${textInput.trim()}`;
+    const scope = input.sessionScope || 'default';
+    const textInput = (input.text || '').trim();
+    const imgHash = input.imageBase64 ? fastDataHash(input.imageBase64) : 'none';
+    const cacheKey = `doc:${input.language || 'en'}:${imgHash}:${textInput}`;
 
-    if (docCache.has(cacheKey)) {
-      return docCache.get(cacheKey)!;
+    // Check scoped cache
+    const scopeCache = getScopeCache(scopedDocCache, scope);
+    if (scopeCache.has(cacheKey)) {
+      return scopeCache.get(cacheKey)!;
+    }
+
+    // Check in-flight promise deduplication
+    const fullKey = `${scope}:${cacheKey}`;
+    if (inFlightClientRequests.has(fullKey)) {
+      return inFlightClientRequests.get(fullKey)!;
     }
 
     if (textInput) {
@@ -74,36 +132,51 @@ export class GeminiDocumentAnalyzer implements DocumentAnalyzer {
       }
     }
 
-    try {
-      const res = await fetch('/api/analyze-document', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
+    const execute = async () => {
+      try {
+        const res = await fetch('/api/analyze-document', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        });
 
-      if (!res.ok) throw new Error(`Server status ${res.status}`);
-      const raw = await res.json();
-      const validated = validateDocumentAnalysis(raw);
-      docCache.set(cacheKey, validated);
-      return validated;
-    } catch (err) {
-      console.warn('Gemini Document Analyzer offline/fallback:', err);
-      // Fallback to validated default
-      const testFallback = new TestDocumentAnalyzer();
-      return testFallback.analyze(input);
-    }
+        if (!res.ok) throw new Error(`Server status ${res.status}`);
+        const raw = await res.json();
+        const validated = validateDocumentAnalysis(raw);
+        setBoundedCache(scopedDocCache, scope, cacheKey, validated);
+        return validated;
+      } catch (err) {
+        console.warn('Gemini Document Analyzer offline/fallback:', err);
+        const testFallback = new TestDocumentAnalyzer();
+        return testFallback.analyze(input);
+      } finally {
+        inFlightClientRequests.delete(fullKey);
+      }
+    };
+
+    const promise = execute();
+    inFlightClientRequests.set(fullKey, promise);
+    return promise;
   }
 }
 
 export class GeminiSafetyAnalyzer implements SafetyAnalyzer {
   async analyze(input: SafetyAnalysisInput): Promise<SafetyAnalysisResult> {
-    const textInput = input.text || '';
-    const cacheKey = input.imageBase64
-      ? `safety:img:${input.imageBase64.slice(0, 80)}:${input.language}`
-      : `safety:txt:${input.language || 'en'}:${textInput.trim()}`;
+    const scope = input.sessionScope || 'default';
+    const textInput = (input.text || '').trim();
+    const imgHash = input.imageBase64 ? fastDataHash(input.imageBase64) : 'none';
+    const cacheKey = `safety:${input.language || 'en'}:${imgHash}:${textInput}`;
 
-    if (safetyCache.has(cacheKey)) {
-      return safetyCache.get(cacheKey)!;
+    // Check scoped cache
+    const scopeCache = getScopeCache(scopedSafetyCache, scope);
+    if (scopeCache.has(cacheKey)) {
+      return scopeCache.get(cacheKey)!;
+    }
+
+    // Check in-flight promise deduplication
+    const fullKey = `${scope}:${cacheKey}`;
+    if (inFlightClientRequests.has(fullKey)) {
+      return inFlightClientRequests.get(fullKey)!;
     }
 
     if (textInput) {
@@ -113,50 +186,77 @@ export class GeminiSafetyAnalyzer implements SafetyAnalyzer {
       }
     }
 
-    try {
-      const res = await fetch('/api/analyze-safety', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
+    const execute = async () => {
+      try {
+        const res = await fetch('/api/analyze-safety', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        });
 
-      if (!res.ok) throw new Error(`Server status ${res.status}`);
-      const raw = await res.json();
-      const validated = validateSafetyAnalysis(raw);
-      safetyCache.set(cacheKey, validated);
-      return validated;
-    } catch (err) {
-      console.warn('Gemini Safety Analyzer offline/fallback:', err);
-      const testFallback = new TestSafetyAnalyzer();
-      return testFallback.analyze(input);
-    }
+        if (!res.ok) throw new Error(`Server status ${res.status}`);
+        const raw = await res.json();
+        const validated = validateSafetyAnalysis(raw);
+        setBoundedCache(scopedSafetyCache, scope, cacheKey, validated);
+        return validated;
+      } catch (err) {
+        console.warn('Gemini Safety Analyzer offline/fallback:', err);
+        const testFallback = new TestSafetyAnalyzer();
+        return testFallback.analyze(input);
+      } finally {
+        inFlightClientRequests.delete(fullKey);
+      }
+    };
+
+    const promise = execute();
+    inFlightClientRequests.set(fullKey, promise);
+    return promise;
   }
 }
 
 export class GeminiIntentDetector implements IntentDetector {
   async detect(input: IntentDetectionInput): Promise<DetectedIntent> {
-    const cacheKey = `intent:${input.language || 'en'}:${input.query.trim().toLowerCase()}`;
-    if (intentCache.has(cacheKey)) {
-      return intentCache.get(cacheKey)!;
+    const scope = input.sessionScope || 'default';
+    const normalizedQuery = (input.query || '').trim().toLowerCase();
+    const cacheKey = `intent:${input.language || 'en'}:${normalizedQuery}`;
+
+    // Check scoped cache
+    const scopeCache = getScopeCache(scopedIntentCache, scope);
+    if (scopeCache.has(cacheKey)) {
+      return scopeCache.get(cacheKey)!;
     }
 
-    try {
-      const res = await fetch('/api/detect-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
-
-      if (!res.ok) throw new Error(`Server status ${res.status}`);
-      const raw = await res.json();
-      const validated = validateDetectedIntent(raw);
-      intentCache.set(cacheKey, validated);
-      return validated;
-    } catch (err) {
-      console.warn('Gemini Intent Detector offline/fallback:', err);
-      const testFallback = new TestIntentDetector();
-      return testFallback.detect(input);
+    // Check in-flight promise deduplication
+    const fullKey = `${scope}:${cacheKey}`;
+    if (inFlightClientRequests.has(fullKey)) {
+      return inFlightClientRequests.get(fullKey)!;
     }
+
+    const execute = async () => {
+      try {
+        const res = await fetch('/api/detect-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        });
+
+        if (!res.ok) throw new Error(`Server status ${res.status}`);
+        const raw = await res.json();
+        const validated = validateDetectedIntent(raw);
+        setBoundedCache(scopedIntentCache, scope, cacheKey, validated);
+        return validated;
+      } catch (err) {
+        console.warn('Gemini Intent Detector offline/fallback:', err);
+        const testFallback = new TestIntentDetector();
+        return testFallback.detect(input);
+      } finally {
+        inFlightClientRequests.delete(fullKey);
+      }
+    };
+
+    const promise = execute();
+    inFlightClientRequests.set(fullKey, promise);
+    return promise;
   }
 }
 

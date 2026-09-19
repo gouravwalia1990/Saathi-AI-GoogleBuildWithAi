@@ -13,6 +13,7 @@ import {
   createDefaultVisitorProfile,
   createDefaultVisitorSettings,
 } from '../data/demoData';
+import { clearAICache } from '../services/apiService';
 
 interface AppContextType {
   activeTab: 'home' | 'explain' | 'safety' | 'reminders' | 'settings';
@@ -461,6 +462,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Reset Session Data (Safe user-specific reset)
   const resetSessionData = () => {
     try {
+      clearAICache(sessionId);
       localStorage.removeItem(`saathi_profile_${sessionId}`);
       localStorage.removeItem(`saathi_reminders_${sessionId}`);
       localStorage.removeItem(`saathi_settings_${sessionId}`);
@@ -603,6 +605,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const resetDemoData = () => {
     if (isDemoMode) {
+      clearAICache('demo');
       setReminders(DEMO_REMINDERS);
       setSettings(DEMO_SETTINGS);
       setUserProfile(DEMO_USER_PROFILE);

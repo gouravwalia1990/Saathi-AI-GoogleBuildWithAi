@@ -144,7 +144,7 @@ export const TalkToSaathiModal: React.FC = () => {
 
     const rec = startSpeechRecognition({
       lang: settings.language,
-      silenceGracePeriodMs: 3500, // 3.5s silence grace period for senior conversational speech
+      silenceGracePeriodMs: 6000, // 6.0s silence grace period allowing natural pauses for seniors
       maxListeningDurationMs: 60000,
       onStatusChange: (status) => {
         setVoiceStatus(status);

@@ -84,7 +84,7 @@ export function startSpeechRecognition(
   const SpeechRecognitionConstructor =
     (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-  const silenceGracePeriodMs = options.silenceGracePeriodMs ?? 3500;
+  const silenceGracePeriodMs = options.silenceGracePeriodMs ?? 6000;
   const maxListeningDurationMs = options.maxListeningDurationMs ?? 60000;
 
   let accumulatedFinalTranscript = '';
@@ -94,7 +94,7 @@ export function startSpeechRecognition(
   let silenceTimer: ReturnType<typeof setTimeout> | null = null;
   let maxDurationTimer: ReturnType<typeof setTimeout> | null = null;
   let restartCount = 0;
-  const MAX_AUTO_RESTARTS = 5;
+  const MAX_AUTO_RESTARTS = 10;
 
   let recognition: any = null;
 
@@ -222,7 +222,13 @@ export function startSpeechRecognition(
             options.onStatusChange?.('LISTENING');
             return;
           } catch (err) {
-            console.warn('Failed to restart speech recognition:', err);
+            // Re-instantiate recognition if browser invalidated the previous instance
+            try {
+              createAndStartRecognition();
+              return;
+            } catch (createErr) {
+              console.warn('Failed to restart speech recognition:', err, createErr);
+            }
           }
         }
 
