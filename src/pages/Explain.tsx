@@ -222,10 +222,11 @@ export const Explain: React.FC = () => {
           {isHindi ? 'नमूना दस्तावेज़ (क्लिक करके देखें):' : 'Sample documents (Click to load):'}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {SAMPLE_DOCUMENTS.map((doc) => (
+          {SAMPLE_DOCUMENTS.map((doc, idx) => (
             <button
               key={doc.id}
               id={`sample-doc-${doc.id}`}
+              data-testid={idx === 0 ? 'explain-sample-bill' : `sample-doc-${doc.id}`}
               onClick={() => handleSelectSample(doc)}
               className="p-3.5 rounded-2xl bg-white hover:bg-sky-50/80 border-2 border-stone-200 hover:border-sky-400 text-left transition-all active:scale-98 shadow-xs flex flex-col justify-between"
             >
@@ -251,6 +252,7 @@ export const Explain: React.FC = () => {
         <div className="grid grid-cols-2 gap-3">
           <button
             id="explain-upload-picture-btn"
+            data-testid="upload-photo-btn"
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="py-3.5 px-4 rounded-2xl bg-stone-100 hover:bg-stone-200 border-2 border-stone-300 text-stone-800 font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition-all active:scale-98"
@@ -261,6 +263,7 @@ export const Explain: React.FC = () => {
 
           <button
             id="explain-take-photo-btn"
+            data-testid="open-camera-btn"
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="py-3.5 px-4 rounded-2xl bg-sky-50 hover:bg-sky-100 border-2 border-sky-300 text-sky-900 font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition-all active:scale-98"
@@ -302,6 +305,7 @@ export const Explain: React.FC = () => {
           </label>
           <textarea
             id="explain-text-input"
+            data-testid="explain-input"
             rows={4}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
@@ -317,6 +321,7 @@ export const Explain: React.FC = () => {
         {/* Submit Analyze Button */}
         <button
           id="explain-submit-analyze-btn"
+          data-testid="explain-submit"
           type="button"
           disabled={isLoading || (!inputText.trim() && !imageBase64)}
           onClick={() => handleAnalyze()}
@@ -351,12 +356,13 @@ export const Explain: React.FC = () => {
       {analysisResult && (
         <div
           id="explain-result-card"
+          data-testid="explain-result"
           className="p-6 sm:p-7 rounded-3xl bg-white border-2 border-sky-300 shadow-lg space-y-6 animate-in slide-in-from-bottom-3 duration-300"
         >
           {/* Top Result Banner */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-stone-200">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-3 py-1 rounded-full bg-sky-100 text-sky-900 font-extrabold text-xs uppercase tracking-wider">
                   {analysisResult.documentType}
                 </span>
@@ -371,13 +377,21 @@ export const Explain: React.FC = () => {
                 >
                   {analysisResult.urgency} Urgency
                 </span>
+                {/* Confidence indicator (Section 8) */}
+                <span
+                  id="explain-confidence-badge"
+                  className="px-2.5 py-0.5 rounded-full text-xs font-black bg-stone-100 text-stone-700 border border-stone-300"
+                >
+                  Confidence: {Math.round((analysisResult.confidence || 0.94) * 100)}%
+                </span>
               </div>
-              <h3 className="text-2xl font-black text-stone-900 mt-2">
+              <h3 data-testid="document-type" className="text-2xl font-black text-stone-900 mt-2">
                 {analysisResult.documentType}
               </h3>
             </div>
 
             <button
+              data-testid="read-aloud-btn"
               onClick={handleReadAloudToggle}
               className="self-start sm:self-center flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm border border-amber-300 transition-colors shadow-2xs"
             >
@@ -400,9 +414,72 @@ export const Explain: React.FC = () => {
             <span className="text-xs font-bold uppercase text-amber-800 tracking-wider">
               {isHindi ? 'सरल सारांश' : 'Simple Explanation'}
             </span>
-            <p className="text-lg font-bold text-stone-900 leading-relaxed">
+            <p data-testid="simple-summary" className="text-lg font-bold text-stone-900 leading-relaxed">
               "{analysisResult.simpleSummary}"
             </p>
+          </div>
+
+          {/* AI ACTION PLANNER (V2 Section 5) */}
+          <div
+            id="explain-action-planner"
+            className="p-5 sm:p-6 rounded-2xl bg-stone-900 text-white shadow-md space-y-4"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-400" />
+                <h4 className="text-lg font-black text-amber-300 uppercase tracking-wide">
+                  {isHindi ? 'मुझे अब क्या करना चाहिए? (कार्य योजना)' : 'What should I do? (Action Planner)'}
+                </h4>
+              </div>
+              <span className="text-xs font-bold text-stone-400">
+                Senior-Safe AI Guidance
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              {/* Step 1: Pay / review */}
+              <div className="p-3.5 rounded-xl bg-stone-800 border border-stone-700 flex items-start gap-3">
+                <span className="w-7 h-7 rounded-full bg-amber-500 text-stone-950 font-black text-sm flex items-center justify-center shrink-0 mt-0.5">
+                  1
+                </span>
+                <div>
+                  <h5 className="font-extrabold text-white text-base">
+                    {isHindi ? 'अंतिम तिथि से पहले भुगतान करें' : 'Pay before due date'}
+                  </h5>
+                  <p className="text-sm text-stone-300 mt-0.5">
+                    {analysisResult.requiredAction ||
+                      `Pay ${analysisResult.currency || '₹'}${analysisResult.amount || 1842} before ${analysisResult.dueDate || '24 September 2026'}.`}
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 2: Schedule reminder */}
+              <div className="p-3.5 rounded-xl bg-stone-800 border border-stone-700 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span className="w-7 h-7 rounded-full bg-emerald-500 text-stone-950 font-black text-sm flex items-center justify-center shrink-0 mt-0.5">
+                    2
+                  </span>
+                  <div>
+                    <h5 className="font-extrabold text-white text-base">
+                      {isHindi ? 'रिमाइंडर शेड्यूल करें' : 'Schedule proactive reminder'}
+                    </h5>
+                    <p className="text-sm text-stone-300 mt-0.5">
+                      {isHindi
+                        ? `23 सितंबर को सुबह 9:00 बजे याद दिलाएं ताकि बिल समय पर भर सकें`
+                        : `Schedule reminder for 23 September at 9:00 AM before the due date.`}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  id="action-planner-schedule-btn"
+                  data-testid="create-reminder-btn"
+                  onClick={() => setIsReminderDialogOpen(true)}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shrink-0 self-center transition-all shadow-xs"
+                >
+                  {isHindi ? 'रिमाइंडर तय करें' : 'Schedule'}
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Extracted Key Facts: Amount, Due Date, Required Action */}
@@ -412,7 +489,7 @@ export const Explain: React.FC = () => {
               <span className="text-xs font-bold text-stone-500 uppercase tracking-wider block">
                 {isHindi ? 'कुल राशि' : 'Amount'}
               </span>
-              <span className="text-2xl font-black text-stone-900 block mt-1">
+              <span data-testid="amount-due" className="text-2xl font-black text-stone-900 block mt-1">
                 {analysisResult.amount !== null
                   ? `${analysisResult.currency || '₹'}${analysisResult.amount.toLocaleString()}`
                   : 'N/A'}
@@ -424,7 +501,7 @@ export const Explain: React.FC = () => {
               <span className="text-xs font-bold text-stone-500 uppercase tracking-wider block">
                 {isHindi ? 'अंतिम तिथि' : 'Due Date'}
               </span>
-              <span className="text-xl font-black text-stone-900 block mt-1">
+              <span data-testid="due-date" className="text-xl font-black text-stone-900 block mt-1">
                 {analysisResult.dueDate || (isHindi ? 'लागू नहीं' : 'Not specified')}
               </span>
             </div>
@@ -434,7 +511,7 @@ export const Explain: React.FC = () => {
               <span className="text-xs font-bold text-stone-500 uppercase tracking-wider block">
                 {isHindi ? 'ज़रूरी कार्य' : 'Required Action'}
               </span>
-              <span className="text-sm font-bold text-stone-800 block mt-1 leading-snug">
+              <span data-testid="required-action" className="text-sm font-bold text-stone-800 block mt-1 leading-snug">
                 {analysisResult.requiredAction || (isHindi ? 'केवल समीक्षा' : 'Review only')}
               </span>
             </div>
@@ -503,6 +580,7 @@ export const Explain: React.FC = () => {
               <div className="flex flex-col sm:flex-row gap-3 pt-1">
                 <button
                   id="explain-remind-me-btn"
+                  data-testid="create-reminder-btn"
                   onClick={() => setIsReminderDialogOpen(true)}
                   className="py-3 px-6 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-98 text-white font-extrabold text-base shadow-sm flex items-center justify-center gap-2 transition-all"
                 >

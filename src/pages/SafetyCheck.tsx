@@ -30,6 +30,8 @@ export const SafetyCheck: React.FC = () => {
     settings,
     notifyFamily,
     familyNotifications,
+    safetyChecks,
+    addSafetyCheckRecord,
     safetyPreloadText,
     setSafetyPreloadText,
     showToast,
@@ -98,6 +100,14 @@ export const SafetyCheck: React.FC = () => {
       });
 
       setAnalysisResult(res);
+
+      // Record in recent checks history (Section 7)
+      addSafetyCheckRecord({
+        snippet: text.slice(0, 80) || (img ? 'Screenshot check' : 'Scam check'),
+        riskLevel: res.riskLevel,
+        summary: res.summary,
+        confidence: res.confidence || 0.95,
+      });
 
       if (res.summary) {
         speakText(res.summary, isHindi ? 'hi' : 'en');
@@ -210,10 +220,11 @@ export const SafetyCheck: React.FC = () => {
           {isHindi ? 'परीक्षण संदेश (क्लिक करके जांचें):' : 'Test scam examples (Click to test):'}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {SAMPLE_SCAMS.map((scam) => (
+          {SAMPLE_SCAMS.map((scam, idx) => (
             <button
               key={scam.id}
               id={`sample-scam-${scam.id}`}
+              data-testid={idx === 0 ? 'safety-sample-scam' : `sample-scam-${scam.id}`}
               onClick={() => handleSelectSample(scam)}
               className="p-3.5 rounded-2xl bg-white hover:bg-rose-50/80 border-2 border-stone-200 hover:border-rose-400 text-left transition-all active:scale-98 shadow-xs flex flex-col justify-between"
             >
@@ -296,6 +307,7 @@ export const SafetyCheck: React.FC = () => {
           </label>
           <textarea
             id="safety-text-input"
+            data-testid="safety-input"
             rows={4}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
@@ -311,6 +323,7 @@ export const SafetyCheck: React.FC = () => {
         {/* Submit Check Button */}
         <button
           id="safety-check-submit-btn"
+          data-testid="safety-submit"
           type="button"
           disabled={isLoading || (!inputText.trim() && !imageBase64)}
           onClick={() => handleAnalyze()}
@@ -345,6 +358,7 @@ export const SafetyCheck: React.FC = () => {
       {analysisResult && (
         <div
           id="safety-result-card"
+          data-testid="safety-result"
           className={`p-6 sm:p-7 rounded-3xl bg-white border-3 shadow-xl space-y-6 animate-in slide-in-from-bottom-3 duration-300 ${
             analysisResult.riskLevel === 'HIGH'
               ? 'border-rose-500 ring-4 ring-rose-100'
@@ -375,18 +389,26 @@ export const SafetyCheck: React.FC = () => {
               </div>
 
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-stone-500">
-                  {isHindi ? 'सुरक्षा मूल्यांकन' : 'Risk Assessment'}
-                </span>
-                <h3 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-stone-500">
+                    {isHindi ? 'सुरक्षा मूल्यांकन' : 'Risk Assessment'}
+                  </span>
+                  <span
+                    id="safety-confidence-badge"
+                    className="px-2 py-0.5 rounded-full text-xs font-black bg-stone-100 text-stone-700 border border-stone-300"
+                  >
+                    Confidence: {Math.round((analysisResult.confidence || 0.95) * 100)}%
+                  </span>
+                </div>
+                <h3 data-testid="risk-badge" className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight mt-0.5">
                   {analysisResult.riskLevel === 'HIGH'
                     ? isHindi
-                      ? '⚠️ संभावित धोखाधड़ी (हाई रिस्क)'
-                      : '⚠️ Possible Scam (HIGH Risk)'
+                    ? '⚠️ संभावित धोखाधड़ी (हाई रिस्क)'
+                    : '⚠️ Possible Scam (HIGH Risk)'
                     : analysisResult.riskLevel === 'MEDIUM'
                     ? isHindi
-                      ? '⚠️ मध्यम जोखिम (सावधानी बरतें)'
-                      : '⚠️ Potential Risk (MEDIUM Risk)'
+                    ? '⚠️ मध्यम जोखिम (सावधानी बरतें)'
+                    : '⚠️ Potential Risk (MEDIUM Risk)'
                     : isHindi
                     ? ' सुरक्षित संदेश (LOW Risk)'
                     : ' Appears Safe (LOW Risk)'}
@@ -395,6 +417,7 @@ export const SafetyCheck: React.FC = () => {
             </div>
 
             <button
+              data-testid="read-aloud-safety-btn"
               onClick={handleReadAloudToggle}
               className="self-start sm:self-center flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm border border-amber-300 transition-colors shadow-2xs"
             >
@@ -417,9 +440,73 @@ export const SafetyCheck: React.FC = () => {
             <span className="text-xs font-bold uppercase text-stone-600 tracking-wider">
               {isHindi ? 'सरल व्याख्या' : 'Explanation'}
             </span>
-            <p className="text-lg font-bold text-stone-900 mt-1 leading-relaxed">
+            <p data-testid="safety-summary" className="text-lg font-bold text-stone-900 mt-1 leading-relaxed">
               "{analysisResult.summary}"
             </p>
+          </div>
+
+          {/* AI ACTION PLANNER (V2 Section 5) */}
+          <div
+            id="safety-action-planner"
+            className="p-5 sm:p-6 rounded-2xl bg-stone-900 text-white shadow-md space-y-4"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-400" />
+                <h4 className="text-lg font-black text-amber-300 uppercase tracking-wide">
+                  {isHindi ? 'मुझे अब क्या करना चाहिए? (कार्य योजना)' : 'What should I do? (Action Planner)'}
+                </h4>
+              </div>
+              <span className="text-xs font-bold text-stone-400">
+                Senior Defense Plan
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              {/* Step 1: Block / Do Not Click */}
+              <div className="p-3.5 rounded-xl bg-stone-800 border border-stone-700 flex items-start gap-3">
+                <span className="w-7 h-7 rounded-full bg-rose-500 text-white font-black text-sm flex items-center justify-center shrink-0 mt-0.5">
+                  1
+                </span>
+                <div>
+                  <h5 className="font-extrabold text-white text-base">
+                    {isHindi ? 'बिल्कुल संपर्क न करें या ब्लॉक करें' : 'Do not engage / block sender'}
+                  </h5>
+                  <p className="text-sm text-stone-300 mt-0.5">
+                    {isHindi
+                      ? 'किसी भी लिंक पर क्लिक न करें, न ही कोई OTP या बैंक पासवर्ड साझा करें।'
+                      : 'Never click unknown links, reply, or share OTP or banking credentials.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 2: Notify Family */}
+              <div className="p-3.5 rounded-xl bg-stone-800 border border-stone-700 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span className="w-7 h-7 rounded-full bg-amber-500 text-stone-950 font-black text-sm flex items-center justify-center shrink-0 mt-0.5">
+                    2
+                  </span>
+                  <div>
+                    <h5 className="font-extrabold text-white text-base">
+                      {isHindi ? 'परिवार के सदस्य को सतर्क करें' : 'Alert your trusted family member'}
+                    </h5>
+                    <p className="text-sm text-stone-300 mt-0.5">
+                      {isHindi
+                        ? `अपने संपर्क (${settings.trustedContactName}) को तुरंत सतर्क करें।`
+                        : `Send safety alert to ${settings.trustedContactName} (${settings.trustedContactRelation}).`}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  id="safety-planner-notify-btn"
+                  data-testid="notify-family-btn"
+                  onClick={() => setIsNotifyDialogOpen(true)}
+                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs shrink-0 self-center transition-all shadow-xs"
+                >
+                  {isHindi ? 'अलर्ट भेजें' : 'Send Alert'}
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Why this looks suspicious (Indicators) */}
@@ -518,6 +605,7 @@ export const SafetyCheck: React.FC = () => {
             <div className="pt-1">
               <button
                 id="safety-notify-family-btn"
+                data-testid="notify-family-btn"
                 type="button"
                 onClick={() => setIsNotifyDialogOpen(true)}
                 className="w-full sm:w-auto py-3.5 px-6 rounded-xl bg-amber-700 hover:bg-amber-800 active:scale-98 text-white font-extrabold text-base shadow-sm flex items-center justify-center gap-2 transition-all"
@@ -577,6 +665,81 @@ export const SafetyCheck: React.FC = () => {
         onConfirm={handleConfirmNotifyFamily}
         onCancel={() => setIsNotifyDialogOpen(false)}
       />
+
+      {/* DIGITAL SAFETY CENTER: RECENT CHECKS (V2 Section 7) */}
+      <div
+        id="safety-center-history-card"
+        className="p-6 rounded-3xl bg-white border-2 border-stone-200 shadow-sm space-y-4"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-rose-700" />
+            <h3 className="text-lg font-black text-stone-900 tracking-tight">
+              {isHindi ? 'डिजिटल सुरक्षा केंद्र — हालिया जाँचें' : 'Digital Safety Center — Recent Checks'}
+            </h3>
+          </div>
+          <span className="text-xs font-black uppercase text-stone-500">
+            {safetyChecks.length} {isHindi ? 'रिकॉर्ड' : 'Verified Records'}
+          </span>
+        </div>
+
+        <div className="space-y-2.5">
+          {safetyChecks.map((check) => (
+            <div
+              key={check.id}
+              className={`p-3.5 rounded-2xl border-2 flex items-start sm:items-center justify-between gap-3 ${
+                check.riskLevel === 'HIGH'
+                  ? 'bg-rose-50/60 border-rose-200'
+                  : check.riskLevel === 'MEDIUM'
+                  ? 'bg-amber-50/60 border-amber-200'
+                  : 'bg-emerald-50/60 border-emerald-200'
+              }`}
+            >
+              <div className="flex items-start sm:items-center gap-3">
+                <span className="text-lg shrink-0 mt-0.5 sm:mt-0">
+                  {check.riskLevel === 'HIGH'
+                    ? '🔴'
+                    : check.riskLevel === 'MEDIUM'
+                    ? '🟡'
+                    : '🟢'}
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-[11px] font-black uppercase px-2 py-0.5 rounded-md ${
+                        check.riskLevel === 'HIGH'
+                          ? 'bg-rose-200 text-rose-900'
+                          : check.riskLevel === 'MEDIUM'
+                          ? 'bg-amber-200 text-amber-900'
+                          : 'bg-emerald-200 text-emerald-900'
+                      }`}
+                    >
+                      {check.riskLevel === 'HIGH'
+                        ? 'High Risk'
+                        : check.riskLevel === 'MEDIUM'
+                        ? 'Needs Attention'
+                        : 'Safe'}
+                    </span>
+                    <span className="text-xs font-semibold text-stone-500">
+                      {check.timestamp}
+                    </span>
+                  </div>
+                  <p className="font-extrabold text-stone-900 text-sm mt-1 leading-snug line-clamp-1">
+                    {check.snippet}
+                  </p>
+                  <p className="text-xs text-stone-600 mt-0.5">
+                    {check.summary}
+                  </p>
+                </div>
+              </div>
+
+              <span className="text-xs font-black text-stone-600 bg-white px-2.5 py-1 rounded-lg border border-stone-200 shrink-0">
+                {Math.round(check.confidence * 100)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };

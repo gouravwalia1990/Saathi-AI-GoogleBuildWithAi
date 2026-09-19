@@ -142,6 +142,7 @@ export const Reminders: React.FC = () => {
   const renderReminderItem = (item: Reminder) => (
     <div
       key={item.id}
+      data-testid="reminder-card"
       className={`p-5 rounded-3xl border-2 transition-all shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 ${
         item.status === 'COMPLETED'
           ? 'bg-stone-100/70 border-stone-300 opacity-60'
@@ -252,6 +253,7 @@ export const Reminders: React.FC = () => {
 
           <button
             id="reminders-add-new-btn"
+            data-testid="add-reminder-btn"
             onClick={() => setIsAddModalOpen(true)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-95"
           >

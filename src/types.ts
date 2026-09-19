@@ -35,6 +35,21 @@ export interface Reminder {
 
 export type Urgency = 'LOW' | 'MEDIUM' | 'HIGH';
 
+export interface ActionPlanStep {
+  stepNumber: number;
+  title: string;
+  description: string;
+  actionType: 'CREATE_REMINDER' | 'NOTIFY_FAMILY' | 'PAY_BILL' | 'BLOCK_SENDER' | 'VERIFY_OFFICIALLY' | 'GENERAL';
+  requiresConfirmation: boolean;
+  confirmationPrompt?: string;
+  suggestedPayload?: {
+    reminderTitle?: string;
+    date?: string;
+    time?: string;
+    amount?: number | null;
+  };
+}
+
 export interface DocumentAnalysisResult {
   documentType: string;
   simpleSummary: string;
@@ -45,6 +60,9 @@ export interface DocumentAnalysisResult {
   requiredAction: string | null;
   urgency: Urgency;
   missingInformation: string[];
+  confidence: number;
+  confidenceNotes?: string;
+  actionPlan?: ActionPlanStep[];
   suggestedReminder: {
     recommended: boolean;
     title: string;
@@ -55,6 +73,15 @@ export interface DocumentAnalysisResult {
 
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
+export interface SafetyCheckRecord {
+  id: string;
+  timestamp: string;
+  snippet: string;
+  riskLevel: RiskLevel;
+  summary: string;
+  confidence: number;
+}
+
 export interface SafetyAnalysisResult {
   riskLevel: RiskLevel;
   summary: string;
@@ -63,6 +90,8 @@ export interface SafetyAnalysisResult {
   thingsToAvoid: string[];
   familyNotificationRecommended: boolean;
   confidence: number;
+  confidenceNotes?: string;
+  actionPlan?: ActionPlanStep[];
 }
 
 export type IntentType =
@@ -92,6 +121,7 @@ export interface UserSettings {
   userName: string;
   language: Language;
   textSize: TextSize;
+  reminderPreference?: '1_day_before' | 'same_day' | '2_days_before';
   highContrast: boolean;
   autoReadAloud: boolean;
   trustedContactName: string;

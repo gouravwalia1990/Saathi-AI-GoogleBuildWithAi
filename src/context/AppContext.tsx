@@ -3,6 +3,7 @@ import {
   Reminder,
   UserSettings,
   FamilyNotificationEvent,
+  SafetyCheckRecord,
   Language,
   TextSize,
 } from '../types';
@@ -11,6 +12,11 @@ import { INITIAL_REMINDERS, INITIAL_SETTINGS } from '../data/demoData';
 interface AppContextType {
   activeTab: 'home' | 'explain' | 'safety' | 'reminders' | 'settings';
   setActiveTab: (tab: 'home' | 'explain' | 'safety' | 'reminders' | 'settings') => void;
+  isDemoMode: boolean;
+  setIsDemoMode: (val: boolean) => void;
+  toggleDemoMode: () => void;
+  isDiagnosticsOpen: boolean;
+  setIsDiagnosticsOpen: (val: boolean) => void;
   reminders: Reminder[];
   addReminder: (reminder: Omit<Reminder, 'id' | 'createdAt'>) => Reminder;
   toggleReminderStatus: (id: string) => void;
@@ -23,6 +29,8 @@ interface AppContextType {
   openTalkWithPrompt: (prompt: string) => void;
   familyNotifications: FamilyNotificationEvent[];
   notifyFamily: (event: { message: string; riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' }) => FamilyNotificationEvent;
+  safetyChecks: SafetyCheckRecord[];
+  addSafetyCheckRecord: (record: Omit<SafetyCheckRecord, 'id' | 'timestamp'>) => void;
   resetDemoData: () => void;
   toastMessage: string | null;
   showToast: (msg: string) => void;
@@ -37,15 +45,110 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const STORAGE_REMINDERS_KEY = 'saathi_ai_reminders_v1';
 const STORAGE_SETTINGS_KEY = 'saathi_ai_settings_v1';
 const STORAGE_FAMILY_KEY = 'saathi_ai_family_v1';
+const STORAGE_SAFETY_CHECKS_KEY = 'saathi_ai_safety_checks_v1';
+const STORAGE_DEMO_KEY = 'saathi_demo_mode_active';
+
+const INITIAL_SAFETY_CHECKS: SafetyCheckRecord[] = [
+  {
+    id: 'sc-1',
+    timestamp: 'Today, 09:15 AM',
+    snippet: 'KBC Lottery: You have won Rs 25,00,000. Send bank details.',
+    riskLevel: 'HIGH',
+    summary: 'Unsolicited lottery scam demanding personal banking details.',
+    confidence: 0.95,
+  },
+  {
+    id: 'sc-2',
+    timestamp: 'Yesterday, 04:30 PM',
+    snippet: 'SBI Alert: Your OTP for login is 482910. Do not share with anyone.',
+    riskLevel: 'LOW',
+    summary: 'Standard bank transactional OTP notification.',
+    confidence: 0.98,
+  },
+];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeTab, setActiveTab] = useState<'home' | 'explain' | 'safety' | 'reminders' | 'settings'>('home');
+  const [activeTab, setActiveTabState] = useState<'home' | 'explain' | 'safety' | 'reminders' | 'settings'>('home');
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const search = window.location.search || '';
+        const path = window.location.pathname || '';
+        if (search.includes('mode=demo') || search.includes('demo=true') || path.startsWith('/demo')) {
+          return true;
+        }
+        return localStorage.getItem(STORAGE_DEMO_KEY) === 'true';
+      }
+    } catch (e) {
+      console.warn('Error reading demo mode state:', e);
+    }
+    return false;
+  });
+
+  const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
   const [isTalkModalOpen, setIsTalkModalOpen] = useState(false);
   const [talkInitialQuery, setTalkInitialQuery] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [explainPreloadText, setExplainPreloadText] = useState<string | null>(null);
   const [safetyPreloadText, setSafetyPreloadText] = useState<string | null>(null);
+
+  // Synchronize route with browser URL on mount & popstate
+  useEffect(() => {
+    const parseRouteFromUrl = () => {
+      if (typeof window === 'undefined') return;
+      const path = window.location.pathname.replace(/^\//, '').toLowerCase();
+      if (path === 'explain') setActiveTabState('explain');
+      else if (path === 'safety') setActiveTabState('safety');
+      else if (path === 'reminders' || path === 'my-day') setActiveTabState('reminders');
+      else if (path === 'settings') setActiveTabState('settings');
+      else if (path === 'home' || path === '' || path === 'demo') setActiveTabState('home');
+
+      const search = window.location.search || '';
+      if (search.includes('mode=demo') || search.includes('demo=true') || path.startsWith('/demo')) {
+        setIsDemoMode(true);
+      }
+    };
+
+    parseRouteFromUrl();
+    window.addEventListener('popstate', parseRouteFromUrl);
+    return () => window.removeEventListener('popstate', parseRouteFromUrl);
+  }, []);
+
+  // Sync demo mode to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_DEMO_KEY, String(isDemoMode));
+    } catch (e) {
+      console.warn('Error saving demo mode:', e);
+    }
+  }, [isDemoMode]);
+
+  const setActiveTab = (tab: 'home' | 'explain' | 'safety' | 'reminders' | 'settings') => {
+    setActiveTabState(tab);
+    if (typeof window !== 'undefined') {
+      const query = isDemoMode ? '?mode=demo' : '';
+      const newPath = tab === 'home' ? `/${query}` : `/${tab}${query}`;
+      window.history.pushState(null, '', newPath);
+    }
+  };
+
+  const toggleDemoMode = () => {
+    setIsDemoMode((prev) => {
+      const next = !prev;
+      showToast(
+        next
+          ? 'Demo Mode Active: Deterministic Test Provider Loaded'
+          : 'Real Gemini Mode Active: Live AI Endpoints Connected'
+      );
+      if (typeof window !== 'undefined') {
+        const query = next ? '?mode=demo' : '';
+        const newPath = activeTab === 'home' ? `/${query}` : `/${activeTab}${query}`;
+        window.history.pushState(null, '', newPath);
+      }
+      return next;
+    });
+  };
 
   // Reminders state
   const [reminders, setReminders] = useState<Reminder[]>(() => {
@@ -80,6 +183,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return [];
   });
 
+  // Safety Checks History (Section 7 Safety Center)
+  const [safetyChecks, setSafetyChecks] = useState<SafetyCheckRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_SAFETY_CHECKS_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn('Failed to load safety checks:', e);
+    }
+    return INITIAL_SAFETY_CHECKS;
+  });
+
   // Sync state to localStorage
   useEffect(() => {
     try {
@@ -104,6 +218,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn('Error saving family notifications:', e);
     }
   }, [familyNotifications]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_SAFETY_CHECKS_KEY, JSON.stringify(safetyChecks));
+    } catch (e) {
+      console.warn('Error saving safety checks:', e);
+    }
+  }, [safetyChecks]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -182,13 +304,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newEvent;
   };
 
+  const addSafetyCheckRecord = (record: Omit<SafetyCheckRecord, 'id' | 'timestamp'>) => {
+    const newRecord: SafetyCheckRecord = {
+      ...record,
+      id: `sc-${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setSafetyChecks((prev) => [newRecord, ...prev.slice(0, 9)]);
+  };
+
   const resetDemoData = () => {
     setReminders(INITIAL_REMINDERS);
     setSettings(INITIAL_SETTINGS);
     setFamilyNotifications([]);
+    setSafetyChecks(INITIAL_SAFETY_CHECKS);
     localStorage.removeItem(STORAGE_REMINDERS_KEY);
     localStorage.removeItem(STORAGE_SETTINGS_KEY);
     localStorage.removeItem(STORAGE_FAMILY_KEY);
+    localStorage.removeItem(STORAGE_SAFETY_CHECKS_KEY);
     showToast('Demo data reset to original state.');
   };
 
@@ -209,6 +342,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         openTalkWithPrompt,
         familyNotifications,
         notifyFamily,
+        safetyChecks,
+        addSafetyCheckRecord,
         resetDemoData,
         toastMessage,
         showToast,
@@ -216,6 +351,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setExplainPreloadText,
         safetyPreloadText,
         setSafetyPreloadText,
+        isDemoMode,
+        setIsDemoMode,
+        toggleDemoMode,
+        isDiagnosticsOpen,
+        setIsDiagnosticsOpen,
       }}
     >
       {children}

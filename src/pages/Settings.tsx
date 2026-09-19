@@ -146,6 +146,49 @@ export const Settings: React.FC = () => {
         </div>
       </div>
 
+      {/* 2b. Reminder Preference (Section 10) */}
+      <div className="p-5 sm:p-6 rounded-3xl bg-white border-2 border-stone-200 shadow-sm space-y-3">
+        <div className="flex items-center gap-2">
+          <Volume2 className="w-5 h-5 text-amber-700" />
+          <h3 className="text-lg font-extrabold text-stone-900">
+            {isHindi ? 'रिमाइंडर प्राथमिकता (Reminder Timing)' : 'Reminder Schedule Preference'}
+          </h3>
+        </div>
+        <p className="text-sm font-medium text-stone-600">
+          {isHindi
+            ? 'बिल और अप्वाइंटमेंट के लिए साथी आपको कब याद दिलाए?'
+            : 'Choose default timing for proactive bill and task reminders.'}
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+          {[
+            { id: '1_day_before', en: '1 Day Before', hi: '1 दिन पहले' },
+            { id: 'same_day', en: 'Same Day', hi: 'उसी दिन सुबह' },
+            { id: '2_days_before', en: '2 Days Before', hi: '2 दिन पहले' },
+          ].map((pref) => {
+            const isSelected = (settings.reminderPreference || '1_day_before') === pref.id;
+            return (
+              <button
+                key={pref.id}
+                type="button"
+                onClick={() => {
+                  updateSettings({ reminderPreference: pref.id as any });
+                  showToast(isHindi ? 'रिमाइंडर समय प्राथमिकता अपडेट की गई' : 'Reminder preference updated');
+                }}
+                className={`py-3 px-3 rounded-2xl font-black text-sm border-2 transition-all flex items-center justify-center gap-2 ${
+                  isSelected
+                    ? 'bg-amber-700 text-white border-amber-700 shadow-sm'
+                    : 'bg-stone-50 hover:bg-stone-100 text-stone-800 border-stone-300'
+                }`}
+              >
+                {isSelected && <CheckCircle2 className="w-4 h-4" />}
+                <span>{isHindi ? pref.hi : pref.en}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* 3. Accessibility Toggles */}
       <div className="p-5 sm:p-6 rounded-3xl bg-white border-2 border-stone-200 shadow-sm space-y-4">
         <div className="flex items-center gap-2">

@@ -1,10 +1,18 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { Shield, Sparkles, Volume2, HelpCircle } from 'lucide-react';
+import { Shield, Sparkles, Activity, CheckCircle2 } from 'lucide-react';
 import { speakText, stopSpeaking } from '../services/speechService';
 
 export const Header: React.FC = () => {
-  const { settings, updateSettings, isTalkModalOpen, setIsTalkModalOpen } = useApp();
+  const {
+    settings,
+    updateSettings,
+    isTalkModalOpen,
+    setIsTalkModalOpen,
+    isDemoMode,
+    toggleDemoMode,
+    setIsDiagnosticsOpen,
+  } = useApp();
 
   const handleLanguageChange = (lang: 'en' | 'hi') => {
     updateSettings({ language: lang });
@@ -38,10 +46,15 @@ export const Header: React.FC = () => {
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-stone-900">
                 SAATHI <span className="text-amber-700 text-sm font-semibold sm:inline hidden">• साथी</span>
               </h1>
-              <span className="hidden md:inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+              <button
+                onClick={() => setIsDiagnosticsOpen(true)}
+                title="Open System Diagnostics"
+                aria-label="Open System Diagnostics"
+                className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200 transition-colors"
+              >
                 <Shield className="w-3 h-3 text-emerald-600" />
                 Senior Safe AI
-              </span>
+              </button>
             </div>
             <p className="text-xs sm:text-sm font-medium text-stone-600">
               {settings.language === 'hi' ? 'समझिए। पूछिए। कीजिए।' : 'Technology that adapts to you'}
@@ -49,11 +62,51 @@ export const Header: React.FC = () => {
           </div>
         </div>
 
-        {/* Senior accessibility toggles */}
+        {/* Senior accessibility toggles & Evaluator controls */}
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Deterministic Demo Mode Toggle (V3 P0 Evaluator Testability) */}
+          <button
+            id="header-demo-mode-btn"
+            data-testid="demo-mode-toggle"
+            onClick={toggleDemoMode}
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-xs border ${
+              isDemoMode
+                ? 'bg-amber-600 text-white border-amber-700 ring-2 ring-amber-400/50'
+                : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
+            }`}
+            title={
+              isDemoMode
+                ? 'Test Mode Active: Click to switch to Real Gemini'
+                : 'Gemini Live: Click to switch to Deterministic Test Mode'
+            }
+            aria-label="Toggle Test Mode"
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isDemoMode ? 'bg-amber-200 animate-pulse' : 'bg-emerald-500'
+              }`}
+            />
+            <span className="hidden sm:inline">
+              {isDemoMode ? 'TEST MODE' : 'GEMINI'}
+            </span>
+          </button>
+
+          {/* Diagnostics Modal Launcher */}
+          <button
+            id="header-diagnostics-btn"
+            data-testid="system-diagnostics-btn"
+            onClick={() => setIsDiagnosticsOpen(true)}
+            className="p-2 rounded-lg border border-stone-300 bg-white hover:bg-stone-100 text-stone-700 text-xs shadow-xs transition-colors"
+            title="System Diagnostics & Evaluator Scenarios"
+            aria-label="System Diagnostics"
+          >
+            <Activity className="w-4 h-4 text-stone-700" />
+          </button>
+
           {/* Quick Voice Prompt Launcher */}
           <button
             id="header-talk-btn"
+            data-testid="talk-to-saathi"
             onClick={() => setIsTalkModalOpen(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-sm shadow-sm transition-all focus:outline-none focus:ring-3 focus:ring-amber-500"
             title="Talk to SAATHI"

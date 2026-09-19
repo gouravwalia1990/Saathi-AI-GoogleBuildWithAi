@@ -40,6 +40,7 @@ export const BottomNav: React.FC = () => {
   return (
     <nav
       id="main-bottom-navigation"
+      data-testid="bottom-nav"
       aria-label="Main Navigation"
       className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200 shadow-lg px-2 py-1.5 safe-area-pb"
     >
@@ -51,6 +52,7 @@ export const BottomNav: React.FC = () => {
             <button
               key={item.id}
               id={`nav-${item.id}`}
+              data-testid={`nav-${item.id}`}
               onClick={() => setActiveTab(item.id)}
               className={`relative flex flex-col items-center justify-center min-w-[64px] py-1 px-2 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-amber-500 ${
                 isActive

@@ -30,6 +30,8 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
     <div
       role="dialog"
       aria-modal="true"
+      aria-label={title}
+      data-testid="confirmation-dialog"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-200"
     >
       <div
@@ -69,6 +71,8 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <button
             id="dialog-confirm-button"
+            data-testid="confirm-action"
+            aria-label={confirmLabel}
             type="button"
             onClick={onConfirm}
             className={`w-full py-3.5 px-6 rounded-2xl font-bold text-base shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 focus:ring-4 ${
@@ -83,6 +87,8 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
 
           <button
             id="dialog-cancel-button"
+            data-testid="cancel-action"
+            aria-label={cancelLabel}
             type="button"
             onClick={onCancel}
             className="w-full py-3.5 px-6 rounded-2xl font-bold text-base text-stone-700 bg-stone-100 hover:bg-stone-200 border border-stone-300 transition-all active:scale-98 flex items-center justify-center gap-2 focus:ring-4 focus:ring-stone-300"

@@ -3,6 +3,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { TalkToSaathiModal } from './components/TalkToSaathiModal';
+import { SystemDiagnosticsModal } from './components/SystemDiagnosticsModal';
 import { Home } from './pages/Home';
 import { Explain } from './pages/Explain';
 import { SafetyCheck } from './pages/SafetyCheck';
@@ -72,6 +73,9 @@ const MainLayout: React.FC = () => {
 
       {/* Conversational Assistant Voice Modal */}
       <TalkToSaathiModal />
+
+      {/* System Diagnostics & Evaluation Monitor */}
+      <SystemDiagnosticsModal />
 
       {/* Bottom Accessible Navigation */}
       <BottomNav />

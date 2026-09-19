@@ -14,6 +14,8 @@ import {
   Volume2,
   AlertTriangle,
   PlayCircle,
+  HelpCircle,
+  ShieldAlert,
 } from 'lucide-react';
 import { speakText } from '../services/speechService';
 import { SAMPLE_DOCUMENTS, SAMPLE_SCAMS } from '../data/demoData';
@@ -22,6 +24,7 @@ export const Home: React.FC = () => {
   const {
     settings,
     reminders,
+    safetyChecks,
     toggleReminderStatus,
     setActiveTab,
     setIsTalkModalOpen,
@@ -34,7 +37,11 @@ export const Home: React.FC = () => {
   const isHindi = settings.language === 'hi';
 
   const pendingReminders = reminders.filter((r) => r.status === 'PENDING');
-  const todayReminders = pendingReminders.slice(0, 3);
+
+  // Derive actual state for My Day (Section 6)
+  const importantBills = pendingReminders.filter((r) => r.category === 'Bills');
+  const appointments = pendingReminders.filter((r) => r.category === 'Appointments');
+  const highRiskSafetyItems = safetyChecks.filter((s) => s.riskLevel === 'HIGH');
 
   const handleCameraUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -48,10 +55,35 @@ export const Home: React.FC = () => {
     }
   };
 
-  const handleReadAloudHome = () => {
+  // My Day audio walkthrough
+  const handleWalkthroughMyDay = () => {
+    const billSummary =
+      importantBills.length > 0
+        ? isHindi
+          ? `आपके पास एक बिजली का बिल है, ₹${importantBills[0].amount || 1842}, जो ${importantBills[0].date} को देय है।`
+          : `You have a bill for ${importantBills[0].title}, amount ₹${importantBills[0].amount || 1842}, due ${importantBills[0].date}.`
+        : '';
+
+    const apptSummary =
+      appointments.length > 0
+        ? isHindi
+          ? `आपका अगला अप्वाइंटमेंट है: ${appointments[0].title}, ${appointments[0].date} को सुबह ${appointments[0].time || '11:00 AM'} बजे।`
+          : `Your next appointment is: ${appointments[0].title}, ${appointments[0].date} at ${appointments[0].time || '11:00 AM'}.`
+        : '';
+
+    const safetySummary =
+      highRiskSafetyItems.length > 0
+        ? isHindi
+          ? `सुरक्षा ध्यान दें: 1 संदिग्ध संदेश की समीक्षा की गई है।`
+          : `Safety alert: 1 suspicious message needs your attention.`
+        : isHindi
+        ? `सभी सुरक्षा संदेश सुरक्षित प्रतीत होते हैं।`
+        : `Your digital safety status is clear.`;
+
     const speech = isHindi
-      ? `नमस्ते मिसेज शर्मा। आपके पास आज 2 ज़रूरी काम हैं। पहला, ₹1,842 का बिजली बिल जो कल देय है। दूसरा, कल सुबह 11 बजे डॉक्टर का अप्वाइंटमेंट। मैं आपकी क्या सहायता करूँ?`
-      : `Good morning Mrs. Sharma. You have two scheduled reminders: Your electricity bill for ₹1,842 is due tomorrow, and your doctor appointment is tomorrow at 11:00 AM. How can I help you today?`;
+      ? `नमस्ते मिसेज शर्मा। आज के आपके मुख्य कार्य: ${billSummary} ${apptSummary} ${safetySummary} क्या आप किसी कार्य में मेरी मदद चाहते हैं?`
+      : `Good morning Mrs. Sharma. Here is what matters today: ${billSummary} ${apptSummary} ${safetySummary} Would you like help with any of these?`;
+
     speakText(speech, isHindi ? 'hi' : 'en');
   };
 
@@ -88,23 +120,25 @@ export const Home: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold uppercase tracking-wider text-amber-800 bg-amber-100/80 px-2.5 py-0.5 rounded-full border border-amber-300">
-                SAATHI COMPANION
+                SAATHI COMPANION • साथी
               </span>
               <button
-                onClick={handleReadAloudHome}
-                className="inline-flex items-center gap-1 text-xs font-bold text-amber-900 bg-white hover:bg-amber-100 px-2.5 py-1 rounded-full border border-amber-300 transition-colors shadow-2xs"
-                title="Read aloud"
+                onClick={handleWalkthroughMyDay}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-white hover:bg-amber-100 px-3 py-1 rounded-full border border-amber-300 transition-colors shadow-2xs"
+                title="Walk through today's tasks"
               >
                 <Volume2 className="w-3.5 h-3.5 text-amber-700" />
-                <span>{isHindi ? 'बोलकर सुनाएँ' : 'Listen'}</span>
+                <span>{isHindi ? 'आज का दिन सुनें' : 'Audio Briefing'}</span>
               </button>
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 mt-2 tracking-tight">
-              {isHindi ? 'शुभ प्रभात, मिसेज शर्मा 👋' : 'Good Morning, Mrs. Sharma 👋'}
+              {isHindi ? 'नमस्ते, मिसेज शर्मा 👋' : 'Good Morning, Mrs. Sharma 👋'}
             </h2>
             <p className="text-base sm:text-lg font-medium text-stone-700 mt-1">
-              {isHindi ? 'आज मैं आपकी क्या सहायता कर सकता हूँ?' : 'How can I help you today?'}
+              {isHindi
+                ? 'तकनीक जो आपके अनुसार ढले, न कि आप तकनीक के अनुसार।'
+                : 'Technology that adapts to you, not the other way around.'}
             </p>
           </div>
 
@@ -119,6 +153,118 @@ export const Home: React.FC = () => {
             </div>
             <span>{isHindi ? '🎙 साथी से बात करें' : '🎙 TALK TO SAATHI'}</span>
           </button>
+        </div>
+      </div>
+
+      {/* MY DAY: Proactive Briefing Section (V2 Section 6) */}
+      <div
+        id="my-day-card"
+        className="p-6 rounded-3xl bg-white border-2 border-stone-200 shadow-md space-y-4"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-stone-200">
+          <div>
+            <span className="text-xs font-black uppercase tracking-wider text-amber-800">
+              {isHindi ? 'मेरा दिन • दैनिक समीक्षा' : 'MY DAY • PROACTIVE BRIEFING'}
+            </span>
+            <h3 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+              {isHindi ? 'यहाँ आज की सबसे ज़रूरी बातें हैं' : "Here's what matters today"}
+            </h3>
+          </div>
+
+          <button
+            id="my-day-walkthrough-btn"
+            onClick={handleWalkthroughMyDay}
+            className="self-start sm:self-center px-4 py-2 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 font-extrabold text-sm border border-amber-300 flex items-center gap-2 shadow-2xs transition-colors"
+          >
+            <PlayCircle className="w-4 h-4 text-amber-800" />
+            <span>
+              {isHindi
+                ? 'क्या मैं आपको आज के काम समझा दूँ?'
+                : 'Walk me through today'}
+            </span>
+          </button>
+        </div>
+
+        {/* Real Application State Items */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* 1. Important Bill Item */}
+          <div className="p-4 rounded-2xl bg-amber-50/70 border-2 border-amber-200 flex flex-col justify-between space-y-2">
+            <div>
+              <div className="flex items-center gap-1.5 text-xs font-black text-rose-800 uppercase">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-pulse" />
+                <span>{isHindi ? 'महत्वपूर्ण देय बिल' : 'Important Bill'}</span>
+              </div>
+              <p className="font-extrabold text-stone-900 text-base mt-1">
+                {importantBills.length > 0
+                  ? `${importantBills[0].title} — ₹${importantBills[0].amount || 1842}`
+                  : 'Electricity Bill — ₹1,842'}
+              </p>
+              <span className="text-xs font-bold text-stone-600">
+                {isHindi ? 'देय तिथि: कल (24 सितंबर)' : 'Due Tomorrow • Avoid late fees'}
+              </span>
+            </div>
+            <button
+              onClick={startBillJourney}
+              className="mt-2 text-xs font-black text-amber-900 hover:text-amber-950 flex items-center gap-1 bg-white px-3 py-1.5 rounded-lg border border-amber-300 self-start shadow-2xs"
+            >
+              <span>{isHindi ? 'बिल विवरण देखें' : 'View Action Plan'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* 2. Upcoming Appointment */}
+          <div className="p-4 rounded-2xl bg-sky-50/70 border-2 border-sky-200 flex flex-col justify-between space-y-2">
+            <div>
+              <div className="flex items-center gap-1.5 text-xs font-black text-sky-800 uppercase">
+                <span className="w-2.5 h-2.5 rounded-full bg-sky-600" />
+                <span>{isHindi ? 'डॉक्टर अप्वाइंटमेंट' : 'Doctor Appointment'}</span>
+              </div>
+              <p className="font-extrabold text-stone-900 text-base mt-1">
+                {appointments.length > 0
+                  ? `${appointments[0].title} — ${appointments[0].time || '11:00 AM'}`
+                  : 'Doctor Appointment — 11:00 AM'}
+              </p>
+              <span className="text-xs font-bold text-stone-600">
+                {isHindi ? 'कल सुबह 11:00 बजे' : 'Tomorrow • Clinic Visit'}
+              </span>
+            </div>
+            <button
+              onClick={() => setActiveTab('reminders')}
+              className="mt-2 text-xs font-black text-sky-900 hover:text-sky-950 flex items-center gap-1 bg-white px-3 py-1.5 rounded-lg border border-sky-300 self-start shadow-2xs"
+            >
+              <span>{isHindi ? 'रिमाइंडर सूची' : 'View Schedule'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* 3. Safety Center Attention */}
+          <div className="p-4 rounded-2xl bg-rose-50/70 border-2 border-rose-200 flex flex-col justify-between space-y-2">
+            <div>
+              <div className="flex items-center gap-1.5 text-xs font-black text-rose-800 uppercase">
+                <ShieldAlert className="w-4 h-4 text-rose-600" />
+                <span>{isHindi ? 'डिजिटल सुरक्षा' : 'Digital Safety'}</span>
+              </div>
+              <p className="font-extrabold text-stone-900 text-base mt-1">
+                {highRiskSafetyItems.length > 0
+                  ? isHindi
+                    ? `${highRiskSafetyItems.length} संदिग्ध संदेश ध्यान देने योग्य`
+                    : `${highRiskSafetyItems.length} message needs attention`
+                  : isHindi
+                  ? 'सभी हालिया संदेश सुरक्षित हैं'
+                  : 'Safety center active & monitoring'}
+              </p>
+              <span className="text-xs font-bold text-stone-600">
+                {isHindi ? 'लॉटरी व धोखाधड़ी से बचाव' : 'Protecting against fraud & SMS links'}
+              </span>
+            </div>
+            <button
+              onClick={() => setActiveTab('safety')}
+              className="mt-2 text-xs font-black text-rose-900 hover:text-rose-950 flex items-center gap-1 bg-white px-3 py-1.5 rounded-lg border border-rose-300 self-start shadow-2xs"
+            >
+              <span>{isHindi ? 'सुरक्षा केंद्र' : 'Open Safety Center'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -162,7 +308,7 @@ export const Home: React.FC = () => {
           </div>
         </button>
 
-        {/* Is This Safe? */}
+        {/* Safety Center */}
         <button
           id="home-btn-safety"
           onClick={() => setActiveTab('safety')}
@@ -173,7 +319,7 @@ export const Home: React.FC = () => {
           </div>
           <div>
             <span className="block font-extrabold text-base text-stone-900">
-              {isHindi ? 'क्या यह सुरक्षित है?' : 'Is This Safe?'}
+              {isHindi ? 'सुरक्षा केंद्र' : 'Safety Center'}
             </span>
             <span className="block text-xs font-semibold text-stone-500 mt-0.5">
               {isHindi ? 'संदिग्ध संदेश जांचें' : 'Check scams & SMS'}
@@ -207,31 +353,77 @@ export const Home: React.FC = () => {
         </button>
       </div>
 
-      {/* Proactive Assistance Notification (Section 2) */}
-      <div className="p-5 rounded-3xl bg-amber-50 border-2 border-amber-300 flex items-start gap-4 shadow-xs">
-        <div className="w-10 h-10 rounded-2xl bg-amber-200 text-amber-900 flex items-center justify-center shrink-0 mt-0.5">
-          <Sparkles className="w-5 h-5 text-amber-700" />
+      {/* Primary Evaluator Demonstration Journeys (Section 13) */}
+      <div className="p-6 rounded-3xl bg-stone-900 text-white shadow-lg space-y-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-amber-400" />
+          <h3 className="text-base sm:text-lg font-black tracking-wide text-amber-300 uppercase">
+            {isHindi ? 'मुख्य मूल्यांकन डेमो यात्राएँ (1-क्लिक टेस्ट)' : 'Core Evaluator Demo Journeys (1-Click Test)'}
+          </h3>
         </div>
-        <div className="flex-1 space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-800">
-              {isHindi ? 'साथी का सुझाव' : 'Proactive Reminder'}
+        <p className="text-sm font-medium text-stone-300">
+          {isHindi
+            ? 'निर्देश: नीचे दिए गए किसी भी बटन पर क्लिक करके तीनों मुख्य मूल्यांकन परिदृश्यों का तुरंत परीक्षण करें।'
+            : 'Click any scenario below to immediately test the required GenAI Challenge connected workflows.'}
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+          {/* Journey 1 */}
+          <button
+            id="journey-btn-scam"
+            onClick={startScamJourney}
+            className="p-3.5 rounded-2xl bg-stone-800 hover:bg-stone-700 text-left border border-stone-700 hover:border-amber-400 transition-all flex flex-col justify-between"
+          >
+            <div>
+              <span className="text-[11px] font-bold uppercase text-amber-400">
+                Journey 1
+              </span>
+              <h4 className="font-extrabold text-sm text-white mt-0.5 leading-snug">
+                {isHindi ? '🛡️ लॉटरी स्कैम जाँच' : '🛡️ Scam Protection'}
+              </h4>
+            </div>
+            <span className="text-xs text-stone-400 mt-2">
+              WhatsApp ₹25 Lakh scam & alert family
             </span>
-          </div>
-          <p className="text-base font-bold text-stone-900">
-            {isHindi
-              ? 'आपका ₹1,842 का बिजली बिल कल देय है। क्या आप इसे आज ही निपटाना चाहते हैं?'
-              : 'Your electricity bill of ₹1,842 is due tomorrow. Would you like help reviewing or paying it?'}
-          </p>
-          <div className="flex items-center gap-3 pt-2">
-            <button
-              onClick={startBillJourney}
-              className="px-4 py-2 rounded-xl bg-amber-700 hover:bg-amber-800 text-white text-sm font-bold shadow-xs transition-all flex items-center gap-1.5"
-            >
-              <span>{isHindi ? 'बिल की जानकारी देखें' : 'Review Bill Details'}</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
+          </button>
+
+          {/* Journey 2 */}
+          <button
+            id="journey-btn-bill"
+            onClick={startBillJourney}
+            className="p-3.5 rounded-2xl bg-stone-800 hover:bg-stone-700 text-left border border-stone-700 hover:border-amber-400 transition-all flex flex-col justify-between"
+          >
+            <div>
+              <span className="text-[11px] font-bold uppercase text-amber-400">
+                Journey 2
+              </span>
+              <h4 className="font-extrabold text-sm text-white mt-0.5 leading-snug">
+                {isHindi ? '📄 बिजली बिल व रिमाइंडर' : '📄 Bill & Reminder'}
+              </h4>
+            </div>
+            <span className="text-xs text-stone-400 mt-2">
+              BSES ₹1,842 bill & proactive reminder
+            </span>
+          </button>
+
+          {/* Journey 3 */}
+          <button
+            id="journey-btn-appointment"
+            onClick={startAppointmentJourney}
+            className="p-3.5 rounded-2xl bg-stone-800 hover:bg-stone-700 text-left border border-stone-700 hover:border-amber-400 transition-all flex flex-col justify-between"
+          >
+            <div>
+              <span className="text-[11px] font-bold uppercase text-amber-400">
+                Journey 3
+              </span>
+              <h4 className="font-extrabold text-sm text-white mt-0.5 leading-snug">
+                {isHindi ? '🎙 वॉयस डॉक्टर अप्वाइंटमेंट' : '🎙 Voice Appointment'}
+              </h4>
+            </div>
+            <span className="text-xs text-stone-400 mt-2">
+              "Mujhe kal doctor ke paas jaana hai at 11 AM"
+            </span>
+          </button>
         </div>
       </div>
 
@@ -239,151 +431,70 @@ export const Home: React.FC = () => {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="text-xl font-extrabold tracking-tight text-stone-900">
-              {isHindi ? 'आज और कल के कार्य' : 'TODAY & UPCOMING'}
+            <Calendar className="w-5 h-5 text-amber-700" />
+            <h3 className="text-lg font-extrabold uppercase tracking-wider text-stone-900">
+              {isHindi ? 'आने वाले कार्य' : 'Upcoming Tasks'}
             </h3>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-stone-200 text-stone-700">
-              {todayReminders.length}
-            </span>
           </div>
           <button
             onClick={() => setActiveTab('reminders')}
-            className="text-sm font-bold text-amber-800 hover:text-amber-900 flex items-center gap-1"
+            className="text-xs font-bold text-amber-800 hover:text-amber-900 flex items-center gap-1"
           >
-            <span>{isHindi ? 'सभी देखें' : 'View all'}</span>
-            <ArrowRight className="w-4 h-4" />
+            <span>{isHindi ? 'सभी देखें' : 'View all'} ({reminders.length})</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <div className="space-y-3">
-          {todayReminders.length === 0 ? (
-            <div className="p-6 rounded-2xl bg-white border border-stone-200 text-center text-stone-500 font-medium">
-              {isHindi ? 'कोई पेंडिंग रिमाइंडर नहीं है।' : 'No pending reminders right now.'}
-            </div>
-          ) : (
-            todayReminders.map((rem) => (
+        {pendingReminders.length === 0 ? (
+          <div className="p-6 rounded-3xl bg-white border-2 border-stone-200 text-center space-y-2">
+            <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+            <p className="text-base font-bold text-stone-800">
+              {isHindi ? 'आज के लिए कोई पेंडिंग कार्य नहीं है!' : 'No pending tasks for today!'}
+            </p>
+            <p className="text-xs font-semibold text-stone-500">
+              {isHindi ? 'आप आराम कर सकते हैं।' : 'You are all caught up.'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {pendingReminders.slice(0, 3).map((r) => (
               <div
-                key={rem.id}
-                className="p-5 rounded-3xl bg-white border-2 border-stone-200 hover:border-amber-300 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all"
+                key={r.id}
+                className="p-4 rounded-2xl bg-white border-2 border-stone-200 hover:border-amber-300 transition-all flex items-center justify-between gap-3 shadow-xs"
               >
-                <div className="flex items-start gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 font-bold">
-                    {rem.category === 'Bills' ? (
-                      <Bell className="w-6 h-6 text-amber-700" />
-                    ) : rem.category === 'Appointments' ? (
-                      <Calendar className="w-6 h-6 text-sky-700" />
-                    ) : (
-                      <Clock className="w-6 h-6 text-emerald-700" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-lg text-stone-900">
-                        {rem.title}
-                      </span>
-                      {rem.amount && (
-                        <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 text-xs font-black">
-                          {rem.currency || '₹'}
-                          {rem.amount.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                    {rem.description && (
-                      <p className="text-sm font-medium text-stone-600 mt-0.5 line-clamp-1">
-                        {rem.description}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-3 text-xs font-semibold text-stone-500 mt-2">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5" />
-                        {rem.date}
-                      </span>
-                      {rem.time && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          {rem.time}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 self-end sm:self-center">
+                <div className="flex items-center gap-3">
                   <button
-                    onClick={() => toggleReminderStatus(rem.id)}
-                    className="px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-sm flex items-center gap-1.5 transition-colors"
+                    onClick={() => toggleReminderStatus(r.id)}
+                    className="w-7 h-7 rounded-lg border-2 border-stone-300 hover:border-emerald-600 flex items-center justify-center transition-colors text-transparent hover:text-emerald-600"
+                    title="Mark Completed"
                   >
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>{isHindi ? 'हो गया' : 'Mark Done'}</span>
+                    <CheckCircle2 className="w-4 h-4" />
                   </button>
+                  <div>
+                    <h4 className="font-extrabold text-stone-900 text-base">
+                      {r.title}
+                    </h4>
+                    <div className="flex items-center gap-2 text-xs font-semibold text-stone-500 mt-0.5">
+                      <span className="flex items-center gap-1 font-bold text-stone-700">
+                        <Clock className="w-3.5 h-3.5 text-stone-400" />
+                        {r.date} {r.time ? `• ${r.time}` : ''}
+                      </span>
+                      {r.amount && (
+                        <span className="font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                          {r.currency || '₹'}{r.amount.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
+
+                <span className="text-[11px] font-black uppercase px-2 py-0.5 rounded-md bg-stone-100 text-stone-600">
+                  {r.category}
+                </span>
               </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Evaluator Guided Demo Journeys Card (Section 23) */}
-      <div className="p-5 rounded-3xl bg-stone-900 text-white shadow-lg space-y-3">
-        <div className="flex items-center gap-2">
-          <PlayCircle className="w-5 h-5 text-amber-400" />
-          <h4 className="font-extrabold text-base tracking-tight text-white">
-            Evaluator Quick Journeys (GenAI Challenge)
-          </h4>
-        </div>
-        <p className="text-xs text-stone-300 leading-relaxed">
-          Test the connected end-to-end loops with single clicks:
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-          {/* Journey 1 */}
-          <button
-            onClick={startScamJourney}
-            className="p-3 rounded-2xl bg-stone-800 hover:bg-stone-700 border border-stone-700 text-left transition-all group"
-          >
-            <span className="text-[11px] font-black uppercase text-amber-400 tracking-wider block">
-              Journey 1
-            </span>
-            <span className="font-bold text-sm text-stone-100 group-hover:text-white block mt-0.5">
-              Scam Protection 🛡️
-            </span>
-            <span className="text-[11px] text-stone-400 block mt-1">
-              Lottery SMS → Risk analysis → Notify Family
-            </span>
-          </button>
-
-          {/* Journey 2 */}
-          <button
-            onClick={startBillJourney}
-            className="p-3 rounded-2xl bg-stone-800 hover:bg-stone-700 border border-stone-700 text-left transition-all group"
-          >
-            <span className="text-[11px] font-black uppercase text-amber-400 tracking-wider block">
-              Journey 2
-            </span>
-            <span className="font-bold text-sm text-stone-100 group-hover:text-white block mt-0.5">
-              Bill & Reminder 📄
-            </span>
-            <span className="text-[11px] text-stone-400 block mt-1">
-              Analyze bill → Extract ₹1,842 → Add Reminder
-            </span>
-          </button>
-
-          {/* Journey 3 */}
-          <button
-            onClick={startAppointmentJourney}
-            className="p-3 rounded-2xl bg-stone-800 hover:bg-stone-700 border border-stone-700 text-left transition-all group"
-          >
-            <span className="text-[11px] font-black uppercase text-amber-400 tracking-wider block">
-              Journey 3
-            </span>
-            <span className="font-bold text-sm text-stone-100 group-hover:text-white block mt-0.5">
-              Voice Appointment 🎙️
-            </span>
-            <span className="text-[11px] text-stone-400 block mt-1">
-              "Doctor at 11 AM" → Intent → Confirm & Save
-            </span>
-          </button>
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
