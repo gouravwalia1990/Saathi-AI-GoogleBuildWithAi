@@ -343,6 +343,7 @@ export function validateDetectedIntent(raw: any): DetectedIntent {
       intent: 'GENERAL_HELP',
       language: 'en',
       confidence: 0.8,
+      requiresConfirmation: false,
       entities: { title: null, date: null, time: null, amount: null },
       conversationalReply: 'I am here to assist you. How can I help today?',
     };
@@ -388,10 +389,48 @@ export function validateDetectedIntent(raw: any): DetectedIntent {
       ? raw.conversationalReply.trim()
       : 'I am here to help you.';
 
+  const title =
+    typeof raw.title === 'string'
+      ? raw.title
+      : typeof raw.entities?.title === 'string'
+      ? raw.entities.title
+      : undefined;
+
+  const date =
+    typeof raw.date === 'string'
+      ? raw.date
+      : typeof raw.entities?.date === 'string'
+      ? raw.entities.date
+      : undefined;
+
+  const time =
+    typeof raw.time === 'string'
+      ? raw.time
+      : typeof raw.entities?.time === 'string'
+      ? raw.entities.time
+      : undefined;
+
+  const explanation =
+    typeof raw.explanation === 'string'
+      ? raw.explanation
+      : typeof raw.conversationalReply === 'string'
+      ? raw.conversationalReply
+      : undefined;
+
+  const requiresConfirmation =
+    typeof raw.requiresConfirmation === 'boolean'
+      ? raw.requiresConfirmation
+      : intent === 'CREATE_APPOINTMENT' || intent === 'CREATE_REMINDER';
+
   return {
     intent,
     language,
     confidence,
+    title,
+    date,
+    time,
+    explanation,
+    requiresConfirmation,
     entities,
     conversationalReply,
   };

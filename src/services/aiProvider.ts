@@ -287,47 +287,132 @@ export class TestIntentDetector implements IntentDetector {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
-    // Scenario C: Doctor Appointment (Section 21)
+    // Scenario A: Doctor Appointment
     if (
       text.includes('doctor') ||
       text.includes('appointment') ||
-      text.includes('kal') ||
-      text.includes('11 am') ||
-      text.includes('11') ||
-      text.includes('dava')
+      (text.includes('jaana') && (text.includes('11') || text.includes('kal'))) ||
+      text.includes('clinic') ||
+      text.includes('hospital')
     ) {
+      let timeNorm = '11:00';
+      let timeDisp = '11:00 AM';
+      if (text.includes('10')) {
+        timeNorm = '10:00';
+        timeDisp = '10:00 AM';
+      }
+
+      const title = isHindi ? 'डॉक्टर का अप्वाइंटमेंट' : 'Doctor appointment';
+
       return validateDetectedIntent({
         intent: 'CREATE_APPOINTMENT',
         language: isHindi ? 'hi' : 'hinglish',
         confidence: 0.98,
+        title,
+        date: tomorrowStr,
+        time: timeNorm,
+        explanation: `Doctor appointment scheduled for tomorrow at ${timeDisp}`,
+        requiresConfirmation: true,
         entities: {
-          title: isHindi ? 'डॉक्टर का अप्वाइंटमेंट' : 'Doctor Appointment',
+          title,
           date: tomorrowStr,
-          time: '11:00 AM',
+          time: timeDisp,
           amount: null,
           category: 'Appointments',
         },
         conversationalReply: isHindi
-          ? `मैंने समझ लिया: डॉक्टर का अप्वाइंटमेंट, कल सुबह 11:00 बजे। क्या मैं इसे आपके रिमाइंडर में सुरक्षित कर दूँ?`
-          : `I understood this as a doctor appointment tomorrow at 11:00 AM. Should I save it to your schedule?`,
+          ? `मैंने समझ लिया: डॉक्टर का अप्वाइंटमेंट, कल सुबह ${timeDisp} बजे। क्या मैं इसे आपके रिमाइंडर में सुरक्षित कर दूँ?`
+          : `I understood this as a doctor appointment tomorrow at ${timeDisp}. Would you like me to save it?`,
       });
     }
 
-    if (text.includes('bill') || text.includes('bijli') || text.includes('electricity') || text.includes('payment')) {
+    // Scenario B: Reminder (Bill payment or general)
+    if (
+      text.includes('remind') ||
+      text.includes('reminder') ||
+      text.includes('yaad') ||
+      text.includes('electricity') ||
+      text.includes('bijli') ||
+      text.includes('bill')
+    ) {
+      const isTomorrow = text.includes('kal') || text.includes('tomorrow');
+      const targetDate = isTomorrow ? tomorrowStr : '2026-09-24';
+      const title = isHindi ? 'बिजली बिल भुगतान' : 'Electricity Bill Payment';
+
       return validateDetectedIntent({
         intent: 'CREATE_REMINDER',
         language: isHindi ? 'hi' : 'en',
         confidence: 0.95,
+        title,
+        date: targetDate,
+        time: '09:00',
+        explanation: `Reminder for ${title} on ${targetDate}`,
+        requiresConfirmation: true,
         entities: {
-          title: isHindi ? 'बिजली बिल भुगतान' : 'Electricity Bill Payment',
-          date: '2026-09-24',
+          title,
+          date: targetDate,
           time: '09:00 AM',
           amount: 1842,
           category: 'Bills',
         },
         conversationalReply: isHindi
-          ? `मैंने ₹1,842 का बिजली बिल रिमाइंडर 24 सितंबर के लिए तैयार किया है। क्या इसे सेव करें?`
-          : `I understood this as an electricity bill payment of ₹1,842 on 24 September. Should I confirm and save it?`,
+          ? `मैंने ₹1,842 का बिजली बिल रिमाइंडर तैयार किया है। क्या इसे सेव करें?`
+          : `I understood you want a reminder for ${title}. Would you like me to save this?`,
+      });
+    }
+
+    // Scenario C: Safety Check
+    if (
+      text.includes('safe') ||
+      text.includes('scam') ||
+      text.includes('fraud') ||
+      text.includes('surakshit') ||
+      text.includes('otp') ||
+      text.includes('lottery')
+    ) {
+      return validateDetectedIntent({
+        intent: 'CHECK_SAFETY',
+        language: isHindi ? 'hi' : 'en',
+        confidence: 0.95,
+        requiresConfirmation: false,
+        explanation: 'Check message or link for scam indicators',
+        entities: {
+          title: null,
+          date: null,
+          time: null,
+          amount: null,
+          category: 'Safety',
+        },
+        conversationalReply: isHindi
+          ? 'जरूर, मुझे वह संदेश दिखाइए या यहाँ पेस्ट कीजिए। मैं तुरंत जाँच करके बताऊँगा कि वह सुरक्षित है या नहीं।'
+          : 'Certainly! Please show me or paste the message, and I will check right away if it is safe.',
+      });
+    }
+
+    // Scenario D: Explain Document
+    if (
+      text.includes('explain') ||
+      text.includes('samjhao') ||
+      text.includes('samajh') ||
+      text.includes('document') ||
+      text.includes('kaghaz')
+    ) {
+      return validateDetectedIntent({
+        intent: 'EXPLAIN_DOCUMENT',
+        language: isHindi ? 'hi' : 'en',
+        confidence: 0.95,
+        requiresConfirmation: false,
+        explanation: 'Explain document in simple words',
+        entities: {
+          title: 'Document',
+          date: null,
+          time: null,
+          amount: null,
+          category: 'Documents',
+        },
+        conversationalReply: isHindi
+          ? 'मैं आपके किसी भी बिल या दस्तावेज़ को आसान शब्दों में समझा सकता हूँ।'
+          : 'I can explain your document or bill in simple, easy-to-understand words.',
       });
     }
 
@@ -336,6 +421,8 @@ export class TestIntentDetector implements IntentDetector {
       intent: 'GENERAL_HELP',
       language: isHindi ? 'hi' : 'en',
       confidence: 0.9,
+      requiresConfirmation: false,
+      explanation: 'General help overview',
       entities: {
         title: null,
         date: null,
@@ -345,7 +432,7 @@ export class TestIntentDetector implements IntentDetector {
       },
       conversationalReply: isHindi
         ? `नमस्ते! मैं साथी हूँ। आप मुझसे कोई भी बिल समझाने, संदेश की सुरक्षा जांचने, या रिमाइंडर तय करने के लिए कह सकते हैं।`
-        : `Hello! I am SAATHI. You can ask me to explain a bill, check a suspicious SMS, or schedule an appointment.`,
+        : `I am here to help. Would you like me to explain a document, check if a message is safe, or help you with a reminder?`,
     });
   }
 }
@@ -369,7 +456,7 @@ export function getIntentDetector(isDemoMode: boolean): IntentDetector {
 // System Diagnostics Status provider (Section 34)
 export interface SystemStatus {
   ui: 'OK';
-  aiProvider: 'Gemini 2.5 Flash' | 'Deterministic Test Provider';
+  aiProvider: 'Gemini 3.8 Flash' | 'Deterministic Test Provider';
   safetyService: 'OK';
   reminderService: 'OK';
   persistence: 'OK (localStorage Sync)';
@@ -380,7 +467,7 @@ export interface SystemStatus {
 export function getSystemDiagnostics(isDemoMode: boolean): SystemStatus {
   return {
     ui: 'OK',
-    aiProvider: isDemoMode ? 'Deterministic Test Provider' : 'Gemini 2.5 Flash',
+    aiProvider: isDemoMode ? 'Deterministic Test Provider' : 'Gemini 3.8 Flash',
     safetyService: 'OK',
     reminderService: 'OK',
     persistence: 'OK (localStorage Sync)',

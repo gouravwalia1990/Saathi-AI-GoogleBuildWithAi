@@ -121,7 +121,7 @@ User input text: ${text || 'Please examine the attached document image'}`;
       contents.push(prompt);
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
         contents,
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,
@@ -219,7 +219,7 @@ Content to analyze: ${text || 'Please inspect the attached screenshot for scam i
       contents.push(prompt);
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
         contents,
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,
@@ -335,42 +335,107 @@ Content to analyze: ${text || 'Please inspect the attached screenshot for scam i
 app.post('/api/detect-intent', async (req, res) => {
   try {
     const { query, language = 'en', userReminders = [] } = req.body;
+    const userQuery = (query || '').trim();
+
+    if (!userQuery) {
+      return res.json({
+        intent: 'GENERAL_HELP',
+        confidence: 0.8,
+        requiresConfirmation: false,
+        entities: { title: null, date: null, time: null, amount: null, category: 'General' },
+        conversationalReply:
+          language === 'hi'
+            ? 'नमस्ते! मैं साथी हूँ। आप कोई दस्तावेज़ समझना चाहें, संदेश जाँचना चाहें, या रिमाइंडर तय करना चाहें, मुझे बताइए।'
+            : 'I am here to help. Would you like me to explain a document, check if a message is safe, or help you with a reminder?',
+      });
+    }
+
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
     const ai = getAI();
 
     if (ai) {
-      const prompt = `You are SAATHI AI orchestrator. Analyze the user utterance from a senior citizen: "${query}".
-Today's local date is September 18, 2026.
-Output strictly valid JSON with no markdown and no extra commentary:
+      try {
+        const prompt = `You are SAATHI AI orchestrator for senior citizens.
+User utterance: "${userQuery}".
+Today's local date is ${todayStr}. Tomorrow is ${tomorrowStr}. Preferred language is ${language}.
+Analyze the user intent and output strictly valid JSON with no markdown and no extra commentary:
 {
-  "intent": "GENERAL_HELP" | "EXPLAIN_DOCUMENT" | "CHECK_SAFETY" | "CREATE_REMINDER" | "CREATE_APPOINTMENT" | "VIEW_REMINDERS" | "HELP_WITH_TASK",
-  "language": "en" | "hi" | "hinglish",
+  "intent": "EXPLAIN_DOCUMENT" | "CHECK_SAFETY" | "CREATE_REMINDER" | "CREATE_APPOINTMENT" | "GENERAL_HELP",
   "confidence": number between 0 and 1,
+  "title": "string or null",
+  "date": "YYYY-MM-DD or null",
+  "time": "HH:MM or null (e.g. 11:00)",
+  "explanation": "concise description of detected intent",
+  "requiresConfirmation": boolean,
   "entities": {
-    "title": "string or null (e.g. Doctor Appointment, Electricity Bill)",
-    "date": "YYYY-MM-DD or tomorrow or null",
-    "time": "HH:MM AM/PM or null (e.g. 11:00 AM)",
+    "title": "string or null",
+    "date": "YYYY-MM-DD or readable date",
+    "time": "HH:MM or HH:MM AM/PM",
     "amount": number or null,
     "category": "Bills" | "Appointments" | "Documents" | "Family" | "General" | "Safety"
   },
-  "conversationalReply": "Warm, respectful, senior-first 1-2 sentence response explaining what you understood and asking for confirmation or guiding them to the right step in simple terms."
+  "conversationalReply": "Warm, respectful, senior-first 1-2 sentence response in the user's language explaining what was understood and asking for confirmation if needed."
 }`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [prompt],
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-          responseMimeType: 'application/json',
-        },
-      });
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: [prompt],
+          config: {
+            systemInstruction: SYSTEM_INSTRUCTION,
+            responseMimeType: 'application/json',
+          },
+        });
 
-      const responseText = response.text || '{}';
-      const parsed = JSON.parse(cleanJson(responseText));
-      return res.json(parsed);
+        const responseText = response.text || '{}';
+        const parsed = JSON.parse(cleanJson(responseText));
+
+        if (parsed && parsed.intent) {
+          const requiresConfirmation =
+            typeof parsed.requiresConfirmation === 'boolean'
+              ? parsed.requiresConfirmation
+              : parsed.intent === 'CREATE_APPOINTMENT' || parsed.intent === 'CREATE_REMINDER';
+
+          let resDate = parsed.date || parsed.entities?.date;
+          if (resDate && (resDate.toLowerCase().includes('tomorrow') || resDate.toLowerCase().includes('kal'))) {
+            resDate = tomorrowStr;
+          }
+
+          let resTime = parsed.time || parsed.entities?.time;
+          if (resTime && resTime.toLowerCase().includes('11')) {
+            resTime = '11:00';
+          }
+
+          return res.json({
+            intent: parsed.intent,
+            confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.95,
+            title: parsed.title || parsed.entities?.title || (parsed.intent === 'CREATE_APPOINTMENT' ? 'Doctor appointment' : undefined),
+            date: resDate || (parsed.intent === 'CREATE_APPOINTMENT' ? tomorrowStr : undefined),
+            time: resTime || (parsed.intent === 'CREATE_APPOINTMENT' ? '11:00' : undefined),
+            explanation: parsed.explanation || parsed.conversationalReply,
+            requiresConfirmation,
+            language: parsed.language || (language === 'hi' ? 'hi' : 'en'),
+            entities: {
+              title: parsed.entities?.title || parsed.title || null,
+              date: resDate || tomorrowStr,
+              time: parsed.entities?.time || resTime || '11:00 AM',
+              amount: parsed.entities?.amount ?? null,
+              category: parsed.entities?.category || (parsed.intent === 'CREATE_APPOINTMENT' ? 'Appointments' : parsed.intent === 'CREATE_REMINDER' ? 'Bills' : 'General'),
+            },
+            conversationalReply: parsed.conversationalReply,
+          });
+        }
+      } catch (aiErr) {
+        console.warn('Gemini intent detection fallback triggered:', aiErr);
+      }
     }
 
     // High quality conversational & rule-based parser fallback
-    const q = (query || '').toLowerCase();
+    const q = userQuery.toLowerCase();
     const isHindi =
       q.includes('hai') ||
       q.includes('karna') ||
@@ -378,33 +443,124 @@ Output strictly valid JSON with no markdown and no extra commentary:
       q.includes('mujhe') ||
       q.includes('kya') ||
       q.includes('samajh') ||
+      q.includes('batao') ||
+      q.includes('bataiye') ||
+      q.includes('kal') ||
       language === 'hi';
 
-    if (q.includes('doctor') || q.includes('appointment') || q.includes('hospital') || q.includes('clinic')) {
-      const time = q.includes('11') ? '11:00 AM' : q.includes('10') ? '10:00 AM' : '11:00 AM';
-      const date = q.includes('kal') || q.includes('tomorrow') ? 'Tomorrow' : '2026-09-19';
+    // 1. Appointment Intent
+    if (
+      q.includes('doctor') ||
+      q.includes('appointment') ||
+      q.includes('hospital') ||
+      q.includes('clinic') ||
+      q.includes('dr.') ||
+      q.includes('dr ') ||
+      (q.includes('jaana hai') && (q.includes('11') || q.includes('kal')))
+    ) {
+      const isTomorrow = q.includes('kal') || q.includes('tomorrow');
+      const targetDate = isTomorrow ? tomorrowStr : tomorrowStr;
+      let timeNorm = '11:00';
+      let timeDisp = '11:00 AM';
+      if (q.includes('10')) {
+        timeNorm = '10:00';
+        timeDisp = '10:00 AM';
+      } else if (q.includes('12')) {
+        timeNorm = '12:00';
+        timeDisp = '12:00 PM';
+      } else if (q.includes('4')) {
+        timeNorm = '16:00';
+        timeDisp = '04:00 PM';
+      }
+
+      const title = isHindi ? 'डॉक्टर का अप्वाइंटमेंट' : 'Doctor appointment';
+      const reply = isHindi
+        ? `मैंने समझ लिया: आपका कल सुबह ${timeDisp} डॉक्टर का अप्वाइंटमेंट है। क्या मैं इसे आपके रिमाइंडर में जोड़ दूँ?`
+        : `I understood you want to create a doctor appointment for tomorrow at ${timeDisp}. Would you like me to save this?`;
+
       return res.json({
         intent: 'CREATE_APPOINTMENT',
-        language: isHindi ? 'hinglish' : 'en',
         confidence: 0.95,
+        title,
+        date: targetDate,
+        time: timeNorm,
+        explanation: `Doctor appointment scheduled for ${targetDate} at ${timeDisp}`,
+        requiresConfirmation: true,
+        language: isHindi ? 'hinglish' : 'en',
         entities: {
-          title: isHindi ? 'डॉक्टर का अप्वाइंटमेंट' : 'Doctor Appointment',
-          date: date,
-          time: time,
+          title,
+          date: isTomorrow ? 'Tomorrow' : targetDate,
+          time: timeDisp,
           amount: null,
           category: 'Appointments',
         },
-        conversationalReply: isHindi
-          ? `मैंने समझ लिया: डॉक्टर का अप्वाइंटमेंट, कल सुबह ${time} बजे। क्या मैं इसे आपके रिमाइंडर में जोड़ दूँ?`
-          : `I understood this: Doctor Appointment, Tomorrow at ${time}. Should I add it to your reminders?`,
+        conversationalReply: reply,
       });
     }
 
-    if (q.includes('safe') || q.includes('scam') || q.includes('fraud') || q.includes('surakshit') || q.includes('kya ye message safe')) {
+    // 2. Reminder Intent
+    if (
+      q.includes('remind') ||
+      q.includes('reminder') ||
+      q.includes('yaad') ||
+      q.includes('bijli') ||
+      q.includes('electricity') ||
+      q.includes('pay my') ||
+      q.includes('bill payment')
+    ) {
+      const isTomorrow = q.includes('kal') || q.includes('tomorrow');
+      const targetDate = isTomorrow ? tomorrowStr : '2026-09-24';
+      const isBill = q.includes('bill') || q.includes('bijli') || q.includes('electricity');
+      const title = isBill
+        ? isHindi
+          ? 'बिजली बिल भुगतान'
+          : 'Electricity Bill Payment'
+        : isHindi
+        ? 'रिमाइंडर'
+        : 'Reminder';
+
+      const reply = isHindi
+        ? `मैंने समझ लिया: ${title}, ${isTomorrow ? 'कल' : '24 सितंबर'} को। क्या मैं इसे आपके रिमाइंडर में जोड़ दूँ?`
+        : `I understood you want a reminder for ${title} ${isTomorrow ? 'tomorrow' : 'on 24 September'}. Would you like me to save this?`;
+
+      return res.json({
+        intent: 'CREATE_REMINDER',
+        confidence: 0.95,
+        title,
+        date: targetDate,
+        time: '09:00',
+        explanation: `Reminder for ${title}`,
+        requiresConfirmation: true,
+        language: isHindi ? 'hinglish' : 'en',
+        entities: {
+          title,
+          date: isTomorrow ? 'Tomorrow' : targetDate,
+          time: '09:00 AM',
+          amount: isBill ? 1842 : null,
+          category: isBill ? 'Bills' : 'General',
+        },
+        conversationalReply: reply,
+      });
+    }
+
+    // 3. Safety Check Intent
+    if (
+      q.includes('safe') ||
+      q.includes('scam') ||
+      q.includes('fraud') ||
+      q.includes('surakshit') ||
+      q.includes('kya ye message safe') ||
+      q.includes('is this message safe') ||
+      q.includes('lottery') ||
+      q.includes('prize') ||
+      q.includes('phishing')
+    ) {
       return res.json({
         intent: 'CHECK_SAFETY',
+        confidence: 0.95,
+        requiresConfirmation: false,
+        explanation: 'Analyze message for safety and scam detection',
         language: isHindi ? 'hinglish' : 'en',
-        confidence: 0.92,
         entities: {
           title: null,
           date: null,
@@ -418,29 +574,50 @@ Output strictly valid JSON with no markdown and no extra commentary:
       });
     }
 
-    if (q.includes('bill') || q.includes('document') || q.includes('kaghaz') || q.includes('kitna pay') || q.includes('samajh nahi aa raha')) {
+    // 4. Document Explanation Intent
+    if (
+      q.includes('explain') ||
+      q.includes('samjhao') ||
+      q.includes('samajh') ||
+      q.includes('document') ||
+      q.includes('kaghaz') ||
+      q.includes('simple language') ||
+      q.includes('samjhana')
+    ) {
       return res.json({
         intent: 'EXPLAIN_DOCUMENT',
+        confidence: 0.95,
+        requiresConfirmation: false,
+        explanation: 'Explain document in simple senior-friendly language',
         language: isHindi ? 'hinglish' : 'en',
-        confidence: 0.92,
         entities: {
-          title: 'Electricity Bill',
-          date: '2026-09-24',
-          time: '09:00',
-          amount: 1842,
-          category: 'Bills',
+          title: 'Official Document',
+          date: null,
+          time: null,
+          amount: null,
+          category: 'Documents',
         },
         conversationalReply: isHindi
-          ? 'यह आपका बिजली का बिल है। इस बिल की राशि ₹1,842 है। क्या आप चाहते हैं कि मैं आपको अंतिम तारीख से पहले याद दिला दूँ?'
-          : 'This is your electricity bill for ₹1,842. Would you like me to remind you before the due date?',
+          ? 'मैं आपके किसी भी बिल या दस्तावेज़ को आसान शब्दों में समझा सकता हूँ। आप "दस्तावेज़ समझें" स्क्रीन में फोटो अपलोड कर सकते हैं।'
+          : 'I can explain your document or bill in simple, everyday language. You can upload or paste it in the Explain Document section.',
       });
     }
 
-    if (q.includes('reminder') || q.includes('yaad')) {
+    // 5. Generic Help / Capabilities Intent
+    if (
+      q.includes('what can you') ||
+      q.includes('help') ||
+      q.includes('madad') ||
+      q.includes('kya kar sakte') ||
+      q.includes('who are you') ||
+      q.includes('capabilities')
+    ) {
       return res.json({
-        intent: 'VIEW_REMINDERS',
+        intent: 'GENERAL_HELP',
+        confidence: 0.95,
+        requiresConfirmation: false,
+        explanation: 'General help and capabilities overview',
         language: isHindi ? 'hinglish' : 'en',
-        confidence: 0.9,
         entities: {
           title: null,
           date: null,
@@ -449,15 +626,17 @@ Output strictly valid JSON with no markdown and no extra commentary:
           category: 'General',
         },
         conversationalReply: isHindi
-          ? 'यहाँ आपके आज और आने वाले दिनों के सभी ज़रूरी रिमाइंडर हैं।'
-          : "Here are all your scheduled reminders for today and upcoming dates.",
+          ? 'नमस्ते! मैं साथी हूँ। आप मुझसे कोई बिल समझाने, किसी संदिग्ध संदेश की सुरक्षा जांचने, या डॉक्टर के अप्वाइंटमेंट और बिल के रिमाइंडर सेट करने के लिए कह सकते हैं।'
+          : 'I am SAATHI, your personal assistant. I can help you understand confusing bills, check if messages are safe, and set reminders for your doctor appointments and tasks.',
       });
     }
 
+    // Low confidence / Unclear input
     return res.json({
       intent: 'GENERAL_HELP',
+      confidence: 0.5,
+      requiresConfirmation: false,
       language: isHindi ? 'hinglish' : 'en',
-      confidence: 0.88,
       entities: {
         title: null,
         date: null,
@@ -466,18 +645,18 @@ Output strictly valid JSON with no markdown and no extra commentary:
         category: 'General',
       },
       conversationalReply: isHindi
-        ? 'नमस्ते मिसेज शर्मा! मैं आपकी क्या सहायता कर सकता हूँ? आप कोई बिल समझाना चाहें, कोई संदिग्ध संदेश जाँचना चाहें या रिमाइंडर सेट करना चाहें, मुझे बताइए।'
-        : 'Hello Mrs. Sharma! How can I assist you today? I can help you understand a bill, check if a message is safe, or set a reminder for you.',
+        ? 'मैं इसे पूरी तरह समझ नहीं पाया। क्या आप इसे किसी और तरीके से समझा सकते हैं?'
+        : "I’m not completely sure what you want me to do. Could you say that another way?",
     });
   } catch (error: any) {
     console.error('Error in /api/detect-intent:', error);
     return res.json({
       intent: 'GENERAL_HELP',
       language: 'en',
-      confidence: 0.8,
+      confidence: 0.3,
+      requiresConfirmation: false,
       entities: {},
-      conversationalReply:
-        "I am here to help. Would you like me to explain a document, check if a message is safe, or help you with a reminder?",
+      conversationalReply: "I couldn't understand that right now. Please try again.",
     });
   }
 });

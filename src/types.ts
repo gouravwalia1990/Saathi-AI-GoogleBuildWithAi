@@ -103,7 +103,19 @@ export type IntentType =
   | 'VIEW_REMINDERS'
   | 'HELP_WITH_TASK';
 
-export interface DetectedIntent {
+export interface IntentResult {
+  intent: IntentType;
+  confidence: number;
+  title?: string;
+  date?: string;
+  time?: string;
+  explanation?: string;
+  requiresConfirmation: boolean;
+  language?: 'en' | 'hi' | 'hinglish';
+  conversationalReply?: string;
+}
+
+export interface DetectedIntent extends IntentResult {
   intent: IntentType;
   language: 'en' | 'hi' | 'hinglish';
   confidence: number;

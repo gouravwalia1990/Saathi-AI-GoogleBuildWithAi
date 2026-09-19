@@ -81,7 +81,7 @@ describe('Deterministic AI Provider & Scenario Fixtures Suite', () => {
 
       const realDiag = getSystemDiagnostics(false);
       expect(realDiag.mode).toBe('REAL');
-      expect(realDiag.aiProvider).toBe('Gemini 2.5 Flash');
+      expect(realDiag.aiProvider).toBe('Gemini 3.8 Flash');
     });
   });
 });

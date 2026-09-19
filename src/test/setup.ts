@@ -49,6 +49,9 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
+// Mock scrollIntoView
+window.HTMLElement.prototype.scrollIntoView = vi.fn();
+
 // Clean up after each test
 afterEach(() => {
   vi.clearAllMocks();
