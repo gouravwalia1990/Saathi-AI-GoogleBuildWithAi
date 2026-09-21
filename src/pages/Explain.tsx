@@ -26,6 +26,7 @@ import { LoadingState } from '../components/LoadingState';
 export const Explain: React.FC = () => {
   const {
     settings,
+    userProfile,
     addReminder,
     setActiveTab,
     explainPreloadText,
@@ -135,7 +136,7 @@ export const Explain: React.FC = () => {
     const remTime = suggested.time || '09:00 AM';
 
     addReminder({
-      userId: 'user-sharma',
+      userId: userProfile.userId,
       title: remTitle,
       description: analysisResult.simpleSummary || 'Document follow-up reminder',
       date: remDate,

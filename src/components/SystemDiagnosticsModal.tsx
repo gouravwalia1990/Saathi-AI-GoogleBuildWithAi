@@ -27,7 +27,6 @@ export const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({
     isDiagnosticsOpen,
     setIsDiagnosticsOpen,
     isDemoMode,
-    toggleDemoMode,
     sessionId,
     userProfile,
     setActiveTab,
@@ -150,7 +149,7 @@ export const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({
               <div>
                 <span className="font-bold text-sm text-stone-800 block">Storage & Session Isolation</span>
                 <span className="text-xs text-stone-500">
-                  {isDemoMode ? 'Demo Persona (Mr. Sharma)' : `Isolated Visitor (${userProfile.displayName || 'Anonymous'})`}
+                  {`Isolated Profile (${userProfile.displayName || 'Personalized'})`}
                 </span>
               </div>
             </div>

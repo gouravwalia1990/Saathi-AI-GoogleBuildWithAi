@@ -23,7 +23,6 @@ export const OnboardingModal: React.FC = () => {
     isOnboardingOpen,
     setIsOnboardingOpen,
     completeOnboarding,
-    setIsDemoMode,
     settings,
   } = useApp();
 
@@ -55,11 +54,6 @@ export const OnboardingModal: React.FC = () => {
       trustedContactName: contactName.trim() || '',
       trustedContactRelation: selectedRelation || 'Family Member',
     });
-    setIsOnboardingOpen(false);
-  };
-
-  const handleChooseDemo = () => {
-    setIsDemoMode(true);
     setIsOnboardingOpen(false);
   };
 

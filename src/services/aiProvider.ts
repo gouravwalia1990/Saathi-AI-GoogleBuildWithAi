@@ -87,6 +87,20 @@ function setBoundedCache<T>(
   scopeMap.set(key, value);
 }
 
+export function cleanUserErrorMessage(err: any): string {
+  if (!err) return 'Service temporarily unavailable. Please try again.';
+  const msg = typeof err === 'string' ? err : err.message || String(err);
+  try {
+    const parsed = JSON.parse(msg);
+    if (parsed?.error?.message) return parsed.error.message;
+    if (parsed?.message) return parsed.message;
+  } catch {
+    const match = msg.match(/\{.*"message":\s*"([^"]+)".*\}/);
+    if (match && match[1]) return match[1];
+  }
+  return msg;
+}
+
 /**
  * Clears cached AI responses for a specific session scope or all caches.
  */
@@ -142,15 +156,16 @@ export class GeminiDocumentAnalyzer implements DocumentAnalyzer {
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({ error: `Server status ${res.status}` }));
-          throw new Error(errData.error || `Server status ${res.status}`);
+          throw new Error(cleanUserErrorMessage(errData.error || `Server status ${res.status}`));
         }
         const raw = await res.json();
         const validated = validateDocumentAnalysis(raw);
         setBoundedCache(scopedDocCache, scope, cacheKey, validated);
         return validated;
       } catch (err: any) {
-        console.error('Gemini Document Analyzer failed:', err);
-        throw new Error(err?.message || 'Document analysis failed. Please try again.');
+        const cleanMsg = cleanUserErrorMessage(err);
+        console.error('Gemini Document Analyzer failed:', cleanMsg);
+        throw new Error(cleanMsg || 'Document analysis failed. Please try again.');
       } finally {
         inFlightClientRequests.delete(fullKey);
       }
@@ -198,15 +213,16 @@ export class GeminiSafetyAnalyzer implements SafetyAnalyzer {
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({ error: `Server status ${res.status}` }));
-          throw new Error(errData.error || `Server status ${res.status}`);
+          throw new Error(cleanUserErrorMessage(errData.error || `Server status ${res.status}`));
         }
         const raw = await res.json();
         const validated = validateSafetyAnalysis(raw);
         setBoundedCache(scopedSafetyCache, scope, cacheKey, validated);
         return validated;
       } catch (err: any) {
-        console.error('Gemini Safety Analyzer failed:', err);
-        throw new Error(err?.message || 'Safety analysis failed. Please try again.');
+        const cleanMsg = cleanUserErrorMessage(err);
+        console.error('Gemini Safety Analyzer failed:', cleanMsg);
+        throw new Error(cleanMsg || 'Safety analysis failed. Please try again.');
       } finally {
         inFlightClientRequests.delete(fullKey);
       }
@@ -246,15 +262,16 @@ export class GeminiIntentDetector implements IntentDetector {
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({ error: `Server status ${res.status}` }));
-          throw new Error(errData.error || `Server status ${res.status}`);
+          throw new Error(cleanUserErrorMessage(errData.error || `Server status ${res.status}`));
         }
         const raw = await res.json();
         const validated = validateDetectedIntent(raw);
         setBoundedCache(scopedIntentCache, scope, cacheKey, validated);
         return validated;
       } catch (err: any) {
-        console.error('Gemini Intent Detector failed:', err);
-        throw new Error(err?.message || 'Intent detection failed. Please try again.');
+        const cleanMsg = cleanUserErrorMessage(err);
+        console.error('Gemini Intent Detector failed:', cleanMsg);
+        throw new Error(cleanMsg || 'Intent detection failed. Please try again.');
       } finally {
         inFlightClientRequests.delete(fullKey);
       }

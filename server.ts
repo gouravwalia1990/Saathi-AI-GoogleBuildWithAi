@@ -61,13 +61,84 @@ function fastServerHash(str: string): string {
   return Math.abs(hash).toString(36) + '_' + str.length;
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs = 15000): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, timeoutMs = 25000): Promise<T> {
+  let timer: NodeJS.Timeout;
   return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error('AI request timed out after 15s')), timeoutMs)
-    ),
+    promise.finally(() => clearTimeout(timer)),
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`AI request timed out after ${Math.round(timeoutMs / 1000)}s`)),
+        timeoutMs
+      );
+    }),
   ]);
+}
+
+// Clean and extract human-friendly error messages from Gemini SDK or network errors
+function formatErrorMessage(error: any): string {
+  if (!error) return 'The AI service is temporarily unavailable. Please try again.';
+  const raw = typeof error === 'string' ? error : error.message || String(error);
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.error?.message) return parsed.error.message;
+    if (parsed?.message) return parsed.message;
+  } catch {
+    const match = raw.match(/\{.*"message":\s*"([^"]+)".*\}/);
+    if (match && match[1]) return match[1];
+  }
+  return raw;
+}
+
+// Resilient multi-model executor that falls back across supported models if 503, 429, or timeouts occur
+async function callGeminiWithResilience(
+  ai: GoogleGenAI,
+  options: {
+    contents: any[];
+    systemInstruction: string;
+    responseMimeType?: string;
+    timeoutMs?: number;
+  }
+): Promise<string> {
+  const timeoutMs = options.timeoutMs || 20000;
+  // Use official Gemini models with high availability:
+  // 'gemini-3.1-flash-lite' provides fast responses and is resilient against demand spikes
+  const candidateModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+  let lastError: any = null;
+
+  for (let i = 0; i < candidateModels.length; i++) {
+    const model = candidateModels[i];
+    try {
+      const response = await withTimeout(
+        ai.models.generateContent({
+          model,
+          contents: options.contents,
+          config: {
+            systemInstruction: options.systemInstruction,
+            responseMimeType: options.responseMimeType || 'application/json',
+          },
+        }),
+        timeoutMs
+      );
+
+      const text = response?.text?.trim();
+      if (text) {
+        return text;
+      }
+    } catch (err: any) {
+      lastError = err;
+      const cleanErr = formatErrorMessage(err);
+      console.warn(
+        `[Gemini] Model '${model}' attempt failed (${cleanErr}). ${
+          i < candidateModels.length - 1 ? 'Switching to next available model candidate...' : 'All models exhausted.'
+        }`
+      );
+      if (i < candidateModels.length - 1) {
+        await new Promise((r) => setTimeout(r, 600));
+      }
+    }
+  }
+
+  throw lastError || new Error('The AI service is temporarily unavailable. Please try again.');
 }
 
 async function executeWithCacheAndDeduplication<T>(
@@ -166,19 +237,13 @@ User input text: ${text || 'Please examine the attached document image'}`;
         }
         contents.push(prompt);
 
-        const response = await withTimeout(
-          ai.models.generateContent({
-            model: 'gemini-3.8-flash',
-            contents,
-            config: {
-              systemInstruction: DOC_SYSTEM_INSTRUCTION,
-              responseMimeType: 'application/json',
-            },
-          }),
-          15000
-        );
+        const responseText = await callGeminiWithResilience(ai, {
+          contents,
+          systemInstruction: DOC_SYSTEM_INSTRUCTION,
+          responseMimeType: 'application/json',
+          timeoutMs: 30000,
+        });
 
-        const responseText = response.text || '{}';
         return JSON.parse(cleanJson(responseText));
       });
 
@@ -190,8 +255,14 @@ User input text: ${text || 'Please examine the attached document image'}`;
     });
   } catch (error: any) {
     console.error('Error in /api/analyze-document:', error);
-    return res.status(500).json({
-      error: error?.message || 'Gemini document analysis failed. Please try again.',
+    const cleanMsg = formatErrorMessage(error);
+    const isServiceIssue =
+      cleanMsg.includes('high demand') ||
+      cleanMsg.includes('UNAVAILABLE') ||
+      cleanMsg.includes('timed out') ||
+      cleanMsg.includes('503');
+    return res.status(isServiceIssue ? 503 : 500).json({
+      error: cleanMsg || 'Gemini document analysis failed. Please try again.',
     });
   }
 });
@@ -232,19 +303,13 @@ Content to analyze: ${text || 'Please inspect the attached screenshot for scam i
         }
         contents.push(prompt);
 
-        const response = await withTimeout(
-          ai.models.generateContent({
-            model: 'gemini-3.8-flash',
-            contents,
-            config: {
-              systemInstruction: SAFETY_SYSTEM_INSTRUCTION,
-              responseMimeType: 'application/json',
-            },
-          }),
-          15000
-        );
+        const responseText = await callGeminiWithResilience(ai, {
+          contents,
+          systemInstruction: SAFETY_SYSTEM_INSTRUCTION,
+          responseMimeType: 'application/json',
+          timeoutMs: 30000,
+        });
 
-        const responseText = response.text || '{}';
         return JSON.parse(cleanJson(responseText));
       });
 
@@ -256,8 +321,14 @@ Content to analyze: ${text || 'Please inspect the attached screenshot for scam i
     });
   } catch (error: any) {
     console.error('Error in /api/analyze-safety:', error);
-    return res.status(500).json({
-      error: error?.message || 'Gemini safety analysis failed. Please try again.',
+    const cleanMsg = formatErrorMessage(error);
+    const isServiceIssue =
+      cleanMsg.includes('high demand') ||
+      cleanMsg.includes('UNAVAILABLE') ||
+      cleanMsg.includes('timed out') ||
+      cleanMsg.includes('503');
+    return res.status(isServiceIssue ? 503 : 500).json({
+      error: cleanMsg || 'Gemini safety analysis failed. Please try again.',
     });
   }
 });
@@ -316,19 +387,13 @@ Analyze the user intent and output strictly valid JSON with no markdown and no e
   "conversationalReply": "Warm, respectful, senior-first 1-2 sentence response in the user's language explaining what was understood and asking for confirmation if needed."
 }`;
 
-          const response = await withTimeout(
-            ai.models.generateContent({
-              model: 'gemini-3.8-flash',
-              contents: [prompt],
-              config: {
-                systemInstruction: INTENT_SYSTEM_INSTRUCTION,
-                responseMimeType: 'application/json',
-              },
-            }),
-            15000
-          );
+          const responseText = await callGeminiWithResilience(ai, {
+            contents: [prompt],
+            systemInstruction: INTENT_SYSTEM_INSTRUCTION,
+            responseMimeType: 'application/json',
+            timeoutMs: 25000,
+          });
 
-          const responseText = response.text || '{}';
           const parsed = JSON.parse(cleanJson(responseText));
 
           if (parsed && parsed.intent) {
@@ -372,8 +437,14 @@ Analyze the user intent and output strictly valid JSON with no markdown and no e
         return res.json(result);
       } catch (aiErr: any) {
         console.error('Gemini intent detection error:', aiErr);
-        return res.status(500).json({
-          error: aiErr?.message || 'Gemini intent detection failed. Please retry.',
+        const cleanMsg = formatErrorMessage(aiErr);
+        const isServiceIssue =
+          cleanMsg.includes('high demand') ||
+          cleanMsg.includes('UNAVAILABLE') ||
+          cleanMsg.includes('timed out') ||
+          cleanMsg.includes('503');
+        return res.status(isServiceIssue ? 503 : 500).json({
+          error: cleanMsg || 'Gemini intent detection failed. Please retry.',
         });
       }
     }
@@ -381,225 +452,11 @@ Analyze the user intent and output strictly valid JSON with no markdown and no e
     return res.status(503).json({
       error: 'Gemini AI service is not initialized. Please ensure GEMINI_API_KEY is configured.',
     });
-
-    // High quality conversational & rule-based parser fallback
-    const q = userQuery.toLowerCase();
-    const isHindi =
-      q.includes('hai') ||
-      q.includes('karna') ||
-      q.includes('jaana') ||
-      q.includes('mujhe') ||
-      q.includes('kya') ||
-      q.includes('samajh') ||
-      q.includes('batao') ||
-      q.includes('bataiye') ||
-      q.includes('kal') ||
-      language === 'hi';
-
-    // 1. Appointment Intent
-    if (
-      q.includes('doctor') ||
-      q.includes('appointment') ||
-      q.includes('hospital') ||
-      q.includes('clinic') ||
-      q.includes('dr.') ||
-      q.includes('dr ') ||
-      (q.includes('jaana hai') && (q.includes('11') || q.includes('kal')))
-    ) {
-      const isTomorrow = q.includes('kal') || q.includes('tomorrow');
-      const targetDate = isTomorrow ? tomorrowStr : tomorrowStr;
-      let timeNorm = '11:00';
-      let timeDisp = '11:00 AM';
-      if (q.includes('10')) {
-        timeNorm = '10:00';
-        timeDisp = '10:00 AM';
-      } else if (q.includes('12')) {
-        timeNorm = '12:00';
-        timeDisp = '12:00 PM';
-      } else if (q.includes('4')) {
-        timeNorm = '16:00';
-        timeDisp = '04:00 PM';
-      }
-
-      const title = isHindi ? 'डॉक्टर का अप्वाइंटमेंट' : 'Doctor appointment';
-      const reply = isHindi
-        ? `मैंने समझ लिया: आपका कल सुबह ${timeDisp} डॉक्टर का अप्वाइंटमेंट है। क्या मैं इसे आपके रिमाइंडर में जोड़ दूँ?`
-        : `I understood you want to create a doctor appointment for tomorrow at ${timeDisp}. Would you like me to save this?`;
-
-      return res.json({
-        intent: 'CREATE_APPOINTMENT',
-        confidence: 0.95,
-        title,
-        date: targetDate,
-        time: timeNorm,
-        explanation: `Doctor appointment scheduled for ${targetDate} at ${timeDisp}`,
-        requiresConfirmation: true,
-        language: isHindi ? 'hinglish' : 'en',
-        entities: {
-          title,
-          date: isTomorrow ? 'Tomorrow' : targetDate,
-          time: timeDisp,
-          amount: null,
-          category: 'Appointments',
-        },
-        conversationalReply: reply,
-      });
-    }
-
-    // 2. Reminder Intent
-    if (
-      q.includes('remind') ||
-      q.includes('reminder') ||
-      q.includes('yaad') ||
-      q.includes('bijli') ||
-      q.includes('electricity') ||
-      q.includes('pay my') ||
-      q.includes('bill payment')
-    ) {
-      const isTomorrow = q.includes('kal') || q.includes('tomorrow');
-      const targetDate = isTomorrow ? tomorrowStr : '2026-09-24';
-      const isBill = q.includes('bill') || q.includes('bijli') || q.includes('electricity');
-      const title = isBill
-        ? isHindi
-          ? 'बिजली बिल भुगतान'
-          : 'Electricity Bill Payment'
-        : isHindi
-        ? 'रिमाइंडर'
-        : 'Reminder';
-
-      const reply = isHindi
-        ? `मैंने समझ लिया: ${title}, ${isTomorrow ? 'कल' : '24 सितंबर'} को। क्या मैं इसे आपके रिमाइंडर में जोड़ दूँ?`
-        : `I understood you want a reminder for ${title} ${isTomorrow ? 'tomorrow' : 'on 24 September'}. Would you like me to save this?`;
-
-      return res.json({
-        intent: 'CREATE_REMINDER',
-        confidence: 0.95,
-        title,
-        date: targetDate,
-        time: '09:00',
-        explanation: `Reminder for ${title}`,
-        requiresConfirmation: true,
-        language: isHindi ? 'hinglish' : 'en',
-        entities: {
-          title,
-          date: isTomorrow ? 'Tomorrow' : targetDate,
-          time: '09:00 AM',
-          amount: isBill ? 1842 : null,
-          category: isBill ? 'Bills' : 'General',
-        },
-        conversationalReply: reply,
-      });
-    }
-
-    // 3. Safety Check Intent
-    if (
-      q.includes('safe') ||
-      q.includes('scam') ||
-      q.includes('fraud') ||
-      q.includes('surakshit') ||
-      q.includes('kya ye message safe') ||
-      q.includes('is this message safe') ||
-      q.includes('lottery') ||
-      q.includes('prize') ||
-      q.includes('phishing')
-    ) {
-      return res.json({
-        intent: 'CHECK_SAFETY',
-        confidence: 0.95,
-        requiresConfirmation: false,
-        explanation: 'Analyze message for safety and scam detection',
-        language: isHindi ? 'hinglish' : 'en',
-        entities: {
-          title: null,
-          date: null,
-          time: null,
-          amount: null,
-          category: 'Safety',
-        },
-        conversationalReply: isHindi
-          ? 'जरूर, मुझे वह संदेश दिखाइए या यहाँ पेस्ट कीजिए। मैं तुरंत जाँच करके बताऊँगा कि वह सुरक्षित है या नहीं।'
-          : 'Certainly! Please show me or paste the message, and I will check right away if it is safe.',
-      });
-    }
-
-    // 4. Document Explanation Intent
-    if (
-      q.includes('explain') ||
-      q.includes('samjhao') ||
-      q.includes('samajh') ||
-      q.includes('document') ||
-      q.includes('kaghaz') ||
-      q.includes('simple language') ||
-      q.includes('samjhana')
-    ) {
-      return res.json({
-        intent: 'EXPLAIN_DOCUMENT',
-        confidence: 0.95,
-        requiresConfirmation: false,
-        explanation: 'Explain document in simple senior-friendly language',
-        language: isHindi ? 'hinglish' : 'en',
-        entities: {
-          title: 'Official Document',
-          date: null,
-          time: null,
-          amount: null,
-          category: 'Documents',
-        },
-        conversationalReply: isHindi
-          ? 'मैं आपके किसी भी बिल या दस्तावेज़ को आसान शब्दों में समझा सकता हूँ। आप "दस्तावेज़ समझें" स्क्रीन में फोटो अपलोड कर सकते हैं।'
-          : 'I can explain your document or bill in simple, everyday language. You can upload or paste it in the Explain Document section.',
-      });
-    }
-
-    // 5. Generic Help / Capabilities Intent
-    if (
-      q.includes('what can you') ||
-      q.includes('help') ||
-      q.includes('madad') ||
-      q.includes('kya kar sakte') ||
-      q.includes('who are you') ||
-      q.includes('capabilities')
-    ) {
-      return res.json({
-        intent: 'GENERAL_HELP',
-        confidence: 0.95,
-        requiresConfirmation: false,
-        explanation: 'General help and capabilities overview',
-        language: isHindi ? 'hinglish' : 'en',
-        entities: {
-          title: null,
-          date: null,
-          time: null,
-          amount: null,
-          category: 'General',
-        },
-        conversationalReply: isHindi
-          ? 'नमस्ते! मैं साथी हूँ। आप मुझसे कोई बिल समझाने, किसी संदिग्ध संदेश की सुरक्षा जांचने, या डॉक्टर के अप्वाइंटमेंट और बिल के रिमाइंडर सेट करने के लिए कह सकते हैं।'
-          : 'I am SAATHI, your personal assistant. I can help you understand confusing bills, check if messages are safe, and set reminders for your doctor appointments and tasks.',
-      });
-    }
-
-    // Low confidence / Unclear input
-    return res.json({
-      intent: 'GENERAL_HELP',
-      confidence: 0.5,
-      requiresConfirmation: false,
-      language: isHindi ? 'hinglish' : 'en',
-      entities: {
-        title: null,
-        date: null,
-        time: null,
-        amount: null,
-        category: 'General',
-      },
-      conversationalReply: isHindi
-        ? 'मैं इसे पूरी तरह समझ नहीं पाया। क्या आप इसे किसी और तरीके से समझा सकते हैं?'
-        : "I’m not completely sure what you want me to do. Could you say that another way?",
-    });
   } catch (error: any) {
     console.error('Error in /api/detect-intent:', error);
+    const cleanMsg = formatErrorMessage(error);
     return res.status(500).json({
-      error: error?.message || 'Gemini intent detection failed. Please try again.',
+      error: cleanMsg || 'Gemini intent detection failed. Please try again.',
     });
   }
 });

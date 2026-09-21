@@ -67,12 +67,6 @@ export const Settings: React.FC = () => {
             </p>
           </div>
         </div>
-
-        {isDemoMode && (
-          <span className="hidden sm:inline-block px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300">
-            Demo Mode Active
-          </span>
-        )}
       </div>
 
       {/* 1. User Profile & Personalization (P0 Isolation) */}
@@ -413,38 +407,22 @@ export const Settings: React.FC = () => {
       <div className="p-5 rounded-3xl bg-white border-2 border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <span className="font-extrabold text-stone-900 text-base block">
-            {isDemoMode
-              ? isHindi
-                ? 'डेमो डेटा रीसेट करें'
-                : 'Reset Demo State (Mr. Sharma)'
-              : isHindi
-              ? 'मेरा सत्र डेटा साफ़ करें'
-              : 'Clear My Session & Start Fresh'}
+            {isHindi ? 'मेरा सत्र डेटा साफ़ करें' : 'Clear My Session & Start Fresh'}
           </span>
           <span className="text-xs font-medium text-stone-500">
-            {isDemoMode
-              ? isHindi
-                ? 'नमूना डेटा (मिस्टर शर्मा) को मूल स्थिति में पुनर्स्थापित करें'
-                : 'Restore original sample fixtures for Mr. Sharma'
-              : isHindi
+            {isHindi
               ? 'वर्तमान सत्र के सभी व्यक्तिगत रिमाइंडर व सेटिंग्स साफ़ करें'
               : 'Erase current isolated session data and restart onboarding'}
           </span>
         </div>
         <button
           data-testid="settings-reset-session-btn"
-          onClick={isDemoMode ? resetDemoData : resetSessionData}
+          onClick={resetSessionData}
           className="px-4 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-800 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-colors self-start sm:self-center"
         >
-          {isDemoMode ? <RotateCcw className="w-4 h-4" /> : <Trash2 className="w-4 h-4 text-rose-600" />}
+          <Trash2 className="w-4 h-4 text-rose-600" />
           <span>
-            {isDemoMode
-              ? isHindi
-                ? 'डेमो रीसेट'
-                : 'Reset Demo Data'
-              : isHindi
-              ? 'सत्र साफ़ करें'
-              : 'Clear My Session'}
+            {isHindi ? 'सत्र साफ़ करें' : 'Clear My Session'}
           </span>
         </button>
       </div>
