@@ -65,7 +65,6 @@ export const Header: React.FC = () => {
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
                   <span>{userProfile.displayName}</span>
-                  {isDemoMode && <span className="text-[10px] text-amber-800 font-extrabold">(Demo)</span>}
                 </button>
               )}
             </div>
@@ -75,47 +74,8 @@ export const Header: React.FC = () => {
           </div>
         </div>
 
-        {/* Senior accessibility toggles & Evaluator controls */}
+        {/* Senior accessibility toggles */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Deterministic Demo Mode Toggle (V3 P0 Evaluator Testability) */}
-          <button
-            id="header-demo-mode-btn"
-            data-testid="demo-mode-toggle"
-            onClick={toggleDemoMode}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-xs border ${
-              isDemoMode
-                ? 'bg-amber-600 text-white border-amber-700 ring-2 ring-amber-400/50'
-                : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
-            }`}
-            title={
-              isDemoMode
-                ? 'Test Mode Active: Click to switch to Real Gemini'
-                : 'Gemini Live: Click to switch to Deterministic Test Mode'
-            }
-            aria-label="Toggle Test Mode"
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isDemoMode ? 'bg-amber-200 animate-pulse' : 'bg-emerald-500'
-              }`}
-            />
-            <span className="hidden sm:inline">
-              {isDemoMode ? 'TEST MODE' : 'GEMINI'}
-            </span>
-          </button>
-
-          {/* Diagnostics Modal Launcher */}
-          <button
-            id="header-diagnostics-btn"
-            data-testid="system-diagnostics-btn"
-            onClick={() => setIsDiagnosticsOpen(true)}
-            className="p-2 rounded-lg border border-stone-300 bg-white hover:bg-stone-100 text-stone-700 text-xs shadow-xs transition-colors"
-            title="System Diagnostics & Evaluator Scenarios"
-            aria-label="System Diagnostics"
-          >
-            <Activity className="w-4 h-4 text-stone-700" />
-          </button>
-
           {/* Quick Voice Prompt Launcher */}
           <button
             id="header-talk-btn"

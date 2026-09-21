@@ -162,11 +162,6 @@ export const Home: React.FC = () => {
                 ? 'तकनीक जो आपके अनुसार ढले, न कि आप तकनीक के अनुसार।'
                 : 'Technology that adapts to you, not the other way around.'}
             </p>
-            {isDemoMode && (
-              <span className="inline-block mt-2 text-xs font-bold text-amber-900 bg-amber-100/90 border border-amber-300 px-2 py-0.5 rounded-md">
-                Demo Mode: Mr. Sharma (Sample Data)
-              </span>
-            )}
           </div>
 
           {/* Big Talk to SAATHI Hero Action Button */}
@@ -396,22 +391,22 @@ export const Home: React.FC = () => {
         </button>
       </div>
 
-      {/* Primary Evaluator Demonstration Journeys (Section 13) */}
+      {/* Senior Assistance Examples */}
       <div className="p-6 rounded-3xl bg-stone-900 text-white shadow-lg space-y-3">
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-amber-400" />
           <h3 className="text-base sm:text-lg font-black tracking-wide text-amber-300 uppercase">
-            {isHindi ? 'मुख्य मूल्यांकन डेमो यात्राएँ (1-क्लिक टेस्ट)' : 'Core Evaluator Demo Journeys (1-Click Test)'}
+            {isHindi ? 'साथी आपकी कैसे मदद कर सकता है' : 'How SAATHI Helps You'}
           </h3>
         </div>
         <p className="text-sm font-medium text-stone-300">
           {isHindi
-            ? 'निर्देश: नीचे दिए गए किसी भी बटन पर क्लिक करके तीनों मुख्य मूल्यांकन परिदृश्यों का तुरंत परीक्षण करें।'
-            : 'Click any scenario below to immediately test the required GenAI Challenge connected workflows.'}
+            ? 'नीचे दिए गए किसी भी उदाहरण को चुनकर देखें कि साथी कैसे आपकी सहायता करता है:'
+            : 'Select any example below to see how SAATHI analyzes documents, safeguards you from scams, and manages reminders:'}
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-          {/* Journey 1 */}
+          {/* Example 1 */}
           <button
             id="journey-btn-scam"
             onClick={startScamJourney}
@@ -419,18 +414,18 @@ export const Home: React.FC = () => {
           >
             <div>
               <span className="text-[11px] font-bold uppercase text-amber-400">
-                Journey 1
+                {isHindi ? 'सुरक्षा जाँच' : 'Safety Check'}
               </span>
               <h4 className="font-extrabold text-sm text-white mt-0.5 leading-snug">
-                {isHindi ? '🛡️ लॉटरी स्कैम जाँच' : '🛡️ Scam Protection'}
+                {isHindi ? '🛡️ लॉटरी संदेश की जाँच' : '🛡️ Check Suspicious Message'}
               </h4>
             </div>
             <span className="text-xs text-stone-400 mt-2">
-              WhatsApp ₹25 Lakh scam & alert family
+              {isHindi ? 'संदिग्ध पुरस्कार संदेश व अलर्ट' : 'WhatsApp lottery message & safety alerts'}
             </span>
           </button>
 
-          {/* Journey 2 */}
+          {/* Example 2 */}
           <button
             id="journey-btn-bill"
             onClick={startBillJourney}
@@ -438,18 +433,18 @@ export const Home: React.FC = () => {
           >
             <div>
               <span className="text-[11px] font-bold uppercase text-amber-400">
-                Journey 2
+                {isHindi ? 'दस्तावेज़ समझें' : 'Explain Document'}
               </span>
               <h4 className="font-extrabold text-sm text-white mt-0.5 leading-snug">
-                {isHindi ? '📄 बिजली बिल व रिमाइंडर' : '📄 Bill & Reminder'}
+                {isHindi ? '📄 बिजली बिल व रिमाइंडर' : '📄 Utility Bill & Due Date'}
               </h4>
             </div>
             <span className="text-xs text-stone-400 mt-2">
-              BSES ₹1,842 bill & proactive reminder
+              {isHindi ? 'बिजली बिल राशि और रिमाइंडर' : 'BSES electricity bill & action plan'}
             </span>
           </button>
 
-          {/* Journey 3 */}
+          {/* Example 3 */}
           <button
             id="journey-btn-appointment"
             onClick={startAppointmentJourney}
@@ -457,10 +452,10 @@ export const Home: React.FC = () => {
           >
             <div>
               <span className="text-[11px] font-bold uppercase text-amber-400">
-                Journey 3
+                {isHindi ? 'वॉयस बातचीत' : 'Voice Assistant'}
               </span>
               <h4 className="font-extrabold text-sm text-white mt-0.5 leading-snug">
-                {isHindi ? '🎙 वॉयस डॉक्टर अप्वाइंटमेंट' : '🎙 Voice Appointment'}
+                {isHindi ? '🎙 डॉक्टर अप्वाइंटमेंट बोलें' : '🎙 Schedule Appointment'}
               </h4>
             </div>
             <span className="text-xs text-stone-400 mt-2">

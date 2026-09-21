@@ -45,6 +45,7 @@ describe('Efficiency, Image Compression & Request Deduplication Suite', () => {
         text: 'Electricity Bill BSES amount 1842 due 24 September 2026',
         language: 'en' as const,
         sessionScope: 'test-session-dedup',
+        useTestProvider: false,
       };
 
       // Launch two concurrent requests simultaneously before network responds
@@ -87,6 +88,7 @@ describe('Efficiency, Image Compression & Request Deduplication Suite', () => {
         query: 'Remind me tomorrow at 11 am for clinic',
         language: 'en' as const,
         sessionScope: 'test-intent-dedup',
+        useTestProvider: false,
       };
 
       const req1 = detectIntent(input);

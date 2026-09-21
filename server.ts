@@ -185,53 +185,13 @@ User input text: ${text || 'Please examine the attached document image'}`;
       return res.json(result);
     }
 
-    // High quality intelligent fallback if AI key is missing or offline
-    const isHindi = language === 'hi';
-    const fallback = {
-      documentType: isHindi ? 'बिजली का बिल' : 'Electricity Bill',
-      simpleSummary: isHindi
-        ? 'यह आपका बिजली का बिल है। इस बिल की राशि ₹1,842 है और भुगतान की अंतिम तारीख 24 सितंबर है।'
-        : 'This is your monthly electricity bill for ₹1,842. The due date is 24 September 2026.',
-      importantInformation: [
-        isHindi ? 'कुल देय राशि: ₹1,842' : 'Total Amount Due: ₹1,842',
-        isHindi ? 'भुगतान की अंतिम तिथि: 24 सितंबर' : 'Due Date: 24 September 2026',
-        isHindi ? 'मीटर कनेक्शन संख्या: 4829103' : 'Consumer Account ID: 4829103',
-      ],
-      amount: 1842,
-      currency: '₹',
-      dueDate: '2026-09-24',
-      requiredAction: isHindi
-        ? 'अंतिम तारीख से पहले बिल का भुगतान करें।'
-        : 'Pay the bill before 24 September 2026 to avoid any late surcharge.',
-      urgency: 'MEDIUM',
-      missingInformation: [],
-      suggestedReminder: {
-        recommended: true,
-        title: isHindi ? 'बिजली बिल भुगतान' : 'Pay Electricity Bill',
-        date: '2026-09-23',
-        time: '09:00',
-      },
-    };
-    return res.json(fallback);
+    return res.status(503).json({
+      error: 'Gemini AI service is not initialized. Please ensure GEMINI_API_KEY is set in the environment.',
+    });
   } catch (error: any) {
     console.error('Error in /api/analyze-document:', error);
-    // Graceful fallback response so UI never breaks
-    return res.json({
-      documentType: 'Notice / Bill',
-      simpleSummary: 'I reviewed your document. It appears to require payment or review before the specified date.',
-      importantInformation: ['Please check the date and amount shown on the paper.'],
-      amount: 1842,
-      currency: '₹',
-      dueDate: '2026-09-24',
-      requiredAction: 'Review the details and consider setting a reminder.',
-      urgency: 'MEDIUM',
-      missingInformation: [],
-      suggestedReminder: {
-        recommended: true,
-        title: 'Electricity Bill Payment',
-        date: '2026-09-23',
-        time: '09:00',
-      },
+    return res.status(500).json({
+      error: error?.message || 'Gemini document analysis failed. Please try again.',
     });
   }
 });
@@ -291,101 +251,13 @@ Content to analyze: ${text || 'Please inspect the attached screenshot for scam i
       return res.json(result);
     }
 
-    // High quality intelligent scam analysis fallback
-    const lower = (text || '').toLowerCase();
-    const isScamLikely =
-      lower.includes('won') ||
-      lower.includes('lottery') ||
-      lower.includes('prize') ||
-      lower.includes('click') ||
-      lower.includes('link') ||
-      lower.includes('bank details') ||
-      lower.includes('otp') ||
-      lower.includes('25,00,000') ||
-      lower.includes('urgent') ||
-      lower.includes('blocked');
-
-    const isHindi = language === 'hi';
-
-    if (isScamLikely) {
-      return res.json({
-        riskLevel: 'HIGH',
-        summary: isHindi
-          ? 'यह संदेश संदिग्ध लगता है और संभावित धोखाधड़ी (Scam) हो सकता है।'
-          : 'This message shows clear signs of an unsolicited lottery scam or phishing attempt.',
-        indicators: isHindi
-          ? [
-              'अचानक अप्रत्याशित इनाम या लॉटरी का दावा',
-              'बैंक खाते की जानकारी या लिंक पर क्लिक करने की मांग',
-              'जल्दबाजी या दबाव बनाने वाली भाषा',
-              'अपरिचित या संदिग्ध इंटरनेट लिंक',
-            ]
-          : [
-              'Unexpected prize or lottery claim',
-              'Requests personal financial or banking information',
-              'Creates artificial urgency to act quickly',
-              'Contains an unverified external link',
-            ],
-        recommendedActions: isHindi
-          ? [
-              'दिए गए लिंक पर बिल्कुल क्लिक न करें।',
-              'किसी के साथ भी OTP, पिन या बैंक पासवर्ड साझा न करें।',
-              'इस नंबर को ब्लॉक और रिपोर्ट करें।',
-              'अपने परिवार के किसी विश्वसनीय सदस्य को इसकी जानकारी दें।',
-            ]
-          : [
-              'Do not click the link under any circumstance.',
-              'Do not share OTP, PIN, CVV, or bank credentials with anyone.',
-              'Do not transfer any processing fees or advance money.',
-              'Block and report the sender.',
-            ],
-        thingsToAvoid: isHindi
-          ? [
-              'संदेश भेजने वाले को कॉल या उत्तर न दें।',
-              'कोई भी ऐप या फ़ाइल डाउनलोड न करें।',
-            ]
-          : [
-              'Do not reply or call the unknown sender.',
-              'Never enter your card number or net-banking login.',
-            ],
-        familyNotificationRecommended: true,
-        confidence: 0.95,
-      });
-    }
-
-    return res.json({
-      riskLevel: 'LOW',
-      summary: isHindi
-        ? 'यह संदेश सामान्य प्रतीत होता है। इसमें कोई तुरंत खतरे का संकेत नहीं मिला।'
-        : 'This message appears standard. No immediate suspicious patterns were detected.',
-      indicators: isHindi
-        ? ['किसी गोपनीय जानकारी या OTP की मांग नहीं है', 'संदेश सामान्य संपर्क जैसा लगता है']
-        : ['No request for sensitive credentials', 'No urgent threats or unexpected prizes'],
-      recommendedActions: isHindi
-        ? ['यदि आप भेजने वाले को जानते हैं तो सामान्य रूप से आगे बढ़ें।']
-        : ['Proceed normally if you recognize the sender.'],
-      thingsToAvoid: [
-        'Always verify with family if anyone asks for money unexpectedly.',
-      ],
-      familyNotificationRecommended: false,
-      confidence: 0.85,
+    return res.status(503).json({
+      error: 'Gemini AI service is not initialized. Please ensure GEMINI_API_KEY is set in the environment.',
     });
   } catch (error: any) {
     console.error('Error in /api/analyze-safety:', error);
-    return res.json({
-      riskLevel: 'HIGH',
-      summary: 'Potential scam warning. Please treat unverified messages with caution.',
-      indicators: [
-        'Requests financial information or unexpected prize',
-        'Urgent call to action',
-      ],
-      recommendedActions: [
-        'Do not click any unknown links',
-        'Never share OTP or banking details',
-      ],
-      thingsToAvoid: ['Never share passwords or transfer funds'],
-      familyNotificationRecommended: true,
-      confidence: 0.9,
+    return res.status(500).json({
+      error: error?.message || 'Gemini safety analysis failed. Please try again.',
     });
   }
 });
@@ -498,10 +370,17 @@ Analyze the user intent and output strictly valid JSON with no markdown and no e
         });
 
         return res.json(result);
-      } catch (aiErr) {
-        console.warn('Gemini intent detection fallback triggered:', aiErr);
+      } catch (aiErr: any) {
+        console.error('Gemini intent detection error:', aiErr);
+        return res.status(500).json({
+          error: aiErr?.message || 'Gemini intent detection failed. Please retry.',
+        });
       }
     }
+
+    return res.status(503).json({
+      error: 'Gemini AI service is not initialized. Please ensure GEMINI_API_KEY is configured.',
+    });
 
     // High quality conversational & rule-based parser fallback
     const q = userQuery.toLowerCase();
@@ -719,13 +598,8 @@ Analyze the user intent and output strictly valid JSON with no markdown and no e
     });
   } catch (error: any) {
     console.error('Error in /api/detect-intent:', error);
-    return res.json({
-      intent: 'GENERAL_HELP',
-      language: 'en',
-      confidence: 0.3,
-      requiresConfirmation: false,
-      entities: {},
-      conversationalReply: "I couldn't understand that right now. Please try again.",
+    return res.status(500).json({
+      error: error?.message || 'Gemini intent detection failed. Please try again.',
     });
   }
 });

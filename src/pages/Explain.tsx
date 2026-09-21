@@ -216,10 +216,10 @@ export const Explain: React.FC = () => {
         )}
       </div>
 
-      {/* Sample Bills / Documents quick clickers */}
+      {/* Example Bills / Documents quick clickers */}
       <div className="space-y-2">
         <p className="text-xs font-bold uppercase tracking-wider text-stone-500">
-          {isHindi ? 'नमूना दस्तावेज़ (क्लिक करके देखें):' : 'Sample documents (Click to load):'}
+          {isHindi ? 'दस्तावेज़ उदाहरण (जाँचने के लिए चुनें):' : 'Common document examples to analyze:'}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {SAMPLE_DOCUMENTS.map((doc, idx) => (

@@ -119,14 +119,8 @@ export const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({
                 <span className="text-xs text-stone-500">{diagnostics.aiProvider}</span>
               </div>
             </div>
-            <span
-              className={`text-xs font-black px-2.5 py-1 rounded-full ${
-                isDemoMode
-                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-              }`}
-            >
-              {diagnostics.mode} MODE
+            <span className="text-xs font-black px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+              ACTIVE
             </span>
           </div>
 
@@ -161,34 +155,9 @@ export const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({
               </div>
             </div>
             <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
-              {isDemoMode ? 'namespace: demo' : `namespace: ${sessionId.slice(0, 12)}`}
+              namespace: {sessionId.slice(0, 12)}
             </span>
           </div>
-        </div>
-
-        {/* Mode Switcher */}
-        <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-300 flex items-center justify-between gap-3">
-          <div>
-            <span className="font-black text-sm text-amber-950 block">
-              Evaluator Test Mode Toggle
-            </span>
-            <span className="text-xs font-medium text-amber-800">
-              {isDemoMode
-                ? 'Deterministic fixtures enabled for 100% predictable evaluation.'
-                : 'Real Gemini model (gemini-2.5-flash) active via server proxy.'}
-            </span>
-          </div>
-          <button
-            data-testid="demo-mode-toggle"
-            onClick={toggleDemoMode}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition-all shadow-xs shrink-0 ${
-              isDemoMode
-                ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                : 'bg-stone-800 hover:bg-stone-900 text-white'
-            }`}
-          >
-            {isDemoMode ? 'Switch to Real Gemini' : 'Switch to Demo Provider'}
-          </button>
         </div>
 
         {/* 1-Click Seeded Evaluation Scenarios (V3 Section 21) */}

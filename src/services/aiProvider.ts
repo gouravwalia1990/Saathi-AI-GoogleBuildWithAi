@@ -140,15 +140,17 @@ export class GeminiDocumentAnalyzer implements DocumentAnalyzer {
           body: JSON.stringify(input),
         });
 
-        if (!res.ok) throw new Error(`Server status ${res.status}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ error: `Server status ${res.status}` }));
+          throw new Error(errData.error || `Server status ${res.status}`);
+        }
         const raw = await res.json();
         const validated = validateDocumentAnalysis(raw);
         setBoundedCache(scopedDocCache, scope, cacheKey, validated);
         return validated;
-      } catch (err) {
-        console.warn('Gemini Document Analyzer offline/fallback:', err);
-        const testFallback = new TestDocumentAnalyzer();
-        return testFallback.analyze(input);
+      } catch (err: any) {
+        console.error('Gemini Document Analyzer failed:', err);
+        throw new Error(err?.message || 'Document analysis failed. Please try again.');
       } finally {
         inFlightClientRequests.delete(fullKey);
       }
@@ -194,15 +196,17 @@ export class GeminiSafetyAnalyzer implements SafetyAnalyzer {
           body: JSON.stringify(input),
         });
 
-        if (!res.ok) throw new Error(`Server status ${res.status}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ error: `Server status ${res.status}` }));
+          throw new Error(errData.error || `Server status ${res.status}`);
+        }
         const raw = await res.json();
         const validated = validateSafetyAnalysis(raw);
         setBoundedCache(scopedSafetyCache, scope, cacheKey, validated);
         return validated;
-      } catch (err) {
-        console.warn('Gemini Safety Analyzer offline/fallback:', err);
-        const testFallback = new TestSafetyAnalyzer();
-        return testFallback.analyze(input);
+      } catch (err: any) {
+        console.error('Gemini Safety Analyzer failed:', err);
+        throw new Error(err?.message || 'Safety analysis failed. Please try again.');
       } finally {
         inFlightClientRequests.delete(fullKey);
       }
@@ -240,15 +244,17 @@ export class GeminiIntentDetector implements IntentDetector {
           body: JSON.stringify(input),
         });
 
-        if (!res.ok) throw new Error(`Server status ${res.status}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ error: `Server status ${res.status}` }));
+          throw new Error(errData.error || `Server status ${res.status}`);
+        }
         const raw = await res.json();
         const validated = validateDetectedIntent(raw);
         setBoundedCache(scopedIntentCache, scope, cacheKey, validated);
         return validated;
-      } catch (err) {
-        console.warn('Gemini Intent Detector offline/fallback:', err);
-        const testFallback = new TestIntentDetector();
-        return testFallback.detect(input);
+      } catch (err: any) {
+        console.error('Gemini Intent Detector failed:', err);
+        throw new Error(err?.message || 'Intent detection failed. Please try again.');
       } finally {
         inFlightClientRequests.delete(fullKey);
       }

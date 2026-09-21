@@ -117,7 +117,6 @@ describe('UI Components & Accessibility Test Suite', () => {
       );
 
       expect(screen.getByTestId('diagnostics-modal')).toBeTruthy();
-      expect(screen.getByTestId('demo-mode-toggle')).toBeTruthy();
       expect(screen.getByTestId('demo-scenario-bill')).toBeTruthy();
       expect(screen.getByTestId('demo-scenario-safety')).toBeTruthy();
       expect(screen.getByTestId('demo-scenario-appointment')).toBeTruthy();

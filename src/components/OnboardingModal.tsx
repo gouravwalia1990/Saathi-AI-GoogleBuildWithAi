@@ -167,23 +167,6 @@ export const OnboardingModal: React.FC = () => {
                 {isHindi ? 'अभी छोड़ें' : 'Skip for now'}
               </button>
             </div>
-
-            {/* Quick Demo Mode option */}
-            <div className="pt-3 border-t border-stone-100 text-center">
-              <button
-                type="button"
-                data-testid="onboarding-demo-btn"
-                onClick={handleChooseDemo}
-                className="text-xs font-bold text-amber-800 hover:text-amber-950 inline-flex items-center gap-1.5 underline underline-offset-4 py-1"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                <span>
-                  {isHindi
-                    ? 'या पहले से भरे नमूना प्रोफ़ाइल (मिस्टर शर्मा) से आज़माएँ'
-                    : 'Or explore immediately with Sample Profile (Mr. Sharma)'}
-                </span>
-              </button>
-            </div>
           </div>
         )}
 

@@ -1,54 +1,58 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { analyzeDocument, analyzeSafety, detectIntent } from '../services/apiService';
+import { analyzeDocument, analyzeSafety, detectIntent, clearAICache } from '../services/apiService';
 
-describe('API Service, Caching & Resilience Test Suite', () => {
+describe('API Service, Real Gemini Provider, Error Propagation & Caching Test Suite', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    clearAICache();
   });
 
-  it('provides safe demo fallback for document analysis when server endpoint fails', async () => {
-    // Force fetch to reject to test resilience
-    global.fetch = vi.fn().mockRejectedValue(new Error('Network offline or backend timeout'));
-
-    const res = await analyzeDocument({
-      text: 'BSES Rajdhani Electricity Bill for Mrs. Sharma. Total Amount: Rs 1842. Due Date: 24 September 2026.',
-      language: 'en',
+  it('propagates error when server returns 503 or fails for document analysis without mock fallback', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ error: 'Gemini AI service unavailable. Please try again.' }),
     });
 
-    expect(res).toBeDefined();
-    expect(res.documentType).toBeDefined();
-    expect(res.amount).toBe(1842);
-    expect(res.simpleSummary).toBeDefined();
-    expect(res.actionPlan).toBeDefined();
+    await expect(
+      analyzeDocument({
+        text: 'BSES Rajdhani Electricity Bill for Mrs. Sharma. Total Amount: Rs 1842. Due Date: 24 September 2026.',
+        language: 'en',
+        useTestProvider: false,
+      })
+    ).rejects.toThrow(/Gemini AI service unavailable|Server status 503/);
   });
 
-  it('provides safe defensive fallback for scam safety check when server endpoint fails', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('Network unavailable'));
-
-    const res = await analyzeSafety({
-      text: 'Congratulations! You won Rs 25,00,000 from KBC Lottery. Send your bank account details and OTP.',
-      language: 'en',
+  it('propagates error when server returns 500 or fails for scam safety check without mock fallback', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: 'Safety analysis failed on backend' }),
     });
 
-    expect(res).toBeDefined();
-    expect(res.riskLevel).toBe('HIGH');
-    expect(res.indicators.length).toBeGreaterThan(0);
-    expect(res.thingsToAvoid.length).toBeGreaterThan(0);
-    expect(res.confidence).toBeGreaterThan(0.9);
+    await expect(
+      analyzeSafety({
+        text: 'Congratulations! You won Rs 25,00,000 from KBC Lottery. Send your bank account details and OTP.',
+        language: 'en',
+        useTestProvider: false,
+      })
+    ).rejects.toThrow(/Safety analysis failed|Server status 500/);
   });
 
-  it('provides robust intent fallback for conversational voice queries', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('AI endpoint timeout'));
-
-    const res = await detectIntent({
-      query: 'Remind me tomorrow at 11 am to visit doctor',
-      language: 'en',
+  it('propagates error when server returns 503 or network fails for intent detection without mock fallback', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ error: 'AI endpoint timeout or uninitialized' }),
     });
 
-    expect(res).toBeDefined();
-    expect(res.intent).toBeDefined();
-    expect(res.conversationalReply).toBeDefined();
-    expect(res.entities).toBeDefined();
+    await expect(
+      detectIntent({
+        query: 'Remind me tomorrow at 11 am to visit doctor',
+        language: 'en',
+        useTestProvider: false,
+      })
+    ).rejects.toThrow(/AI endpoint timeout|Server status 503/);
   });
 
   it('serves cached responses on duplicate queries to maximize efficiency and reduce latency', async () => {
@@ -71,11 +75,13 @@ describe('API Service, Caching & Resilience Test Suite', () => {
     const query = {
       text: 'Water Utility Bill due date 30 September 2026 amount 320',
       language: 'en' as const,
+      useTestProvider: false,
     };
 
     // First call fetches from API
     const firstResult = await analyzeDocument(query);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(firstResult.amount).toBe(320);
 
     // Second identical call hits memory cache
     const secondResult = await analyzeDocument(query);

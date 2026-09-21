@@ -214,10 +214,10 @@ export const SafetyCheck: React.FC = () => {
         </span>
       </div>
 
-      {/* Quick Test Scams (GenAI Challenge Journey 1) */}
+      {/* Quick Message Examples */}
       <div className="space-y-2">
         <p className="text-xs font-bold uppercase tracking-wider text-stone-500">
-          {isHindi ? 'परीक्षण संदेश (क्लिक करके जांचें):' : 'Test scam examples (Click to test):'}
+          {isHindi ? 'संदेश उदाहरण (जाँचने के लिए चुनें):' : 'Common message examples to inspect:'}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {SAMPLE_SCAMS.map((scam, idx) => (
